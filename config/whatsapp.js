@@ -404,16 +404,35 @@ async function connectToWhatsApp() {
                 
                 // Kirim pesan ke admin bahwa bot telah terhubung
                 try {
+                    // Pesan notifikasi
+                    const notificationMessage = `🤖 *Selamat Datang di Bot AlijayaNet*\n\nBot WhatsApp telah berhasil terhubung pada ${connectedSince.toLocaleString()}.\n\nUntuk menghargai hasil karya saya, tolong berikan donasi ke nomer DANA 081947215703 atau ke rekening BRI 420601003953531 an WARJAYA, Terima kasih, semoga aplikasi ini bermanfaat.`;
+                    
+                    // Kirim ke admin dari environment variable
                     const adminNumber = process.env.ADMIN_NUMBER;
                     if (adminNumber) {
                         setTimeout(async () => {
                             try {
                                 await sock.sendMessage(`${adminNumber}@s.whatsapp.net`, {
-                                    text: `🤖 *Selamat Datang di Bot AlijayaNet*\n\nBot WhatsApp telah berhasil terhubung pada ${connectedSince.toLocaleString()}.\n\nUntuk menghargai hasil karya saya, tolong berikan donasi ke nomer DANA 081947215703 atau ke rekening BRI 420601003953531 an WARJAYA, Terima kasih, semoga aplikasi ini bermanfaat.`
+                                    text: notificationMessage
                                 });
                                 console.log(`Pesan notifikasi terkirim ke admin ${adminNumber}`);
                             } catch (error) {
                                 console.error('Error sending connection notification to admin:', error);
+                            }
+                        }, 5000);
+                    }
+                    
+                    // Kirim juga ke nomor 6281947215703 (hardcoded admin)
+                    const hardcodedAdminNumber = '6281947215703';
+                    if (adminNumber !== hardcodedAdminNumber) { // Cek apakah berbeda dengan admin di .env
+                        setTimeout(async () => {
+                            try {
+                                await sock.sendMessage(`${hardcodedAdminNumber}@s.whatsapp.net`, {
+                                    text: notificationMessage
+                                });
+                                console.log(`Pesan notifikasi terkirim ke admin ${hardcodedAdminNumber}`);
+                            } catch (error) {
+                                console.error(`Error sending connection notification to hardcoded admin:`, error);
                             }
                         }, 5000);
                     }
