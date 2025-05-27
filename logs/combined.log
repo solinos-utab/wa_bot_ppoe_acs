@@ -1,0 +1,77 @@
+2025-05-27 22:41:02 info: PPPoE monitoring started with interval 60000ms
+2025-05-27 22:41:02 info: Attempting to start server on configured port: 4500
+2025-05-27 22:41:02 info: Mencoba memulai server pada port 4500...
+2025-05-27 22:41:02 info: Server berhasil berjalan pada port 4500
+2025-05-27 22:41:02 info: Environment: development
+2025-05-27 22:41:02 info: WhatsApp connected successfully
+2025-05-27 22:42:02 info: Connected to Mikrotik at 192.168.8.1:8700
+2025-05-27 22:42:02 info: Monitoring PPPoE connections: 162 active connections
+2025-05-27 22:42:31 info: PPPoE monitoring started with interval 60000ms
+2025-05-27 22:42:31 info: Attempting to start server on configured port: 4500
+2025-05-27 22:42:31 info: Mencoba memulai server pada port 4500...
+2025-05-27 22:42:31 info: Server berhasil berjalan pada port 4500
+2025-05-27 22:42:31 info: Environment: development
+2025-05-27 22:42:31 info: WhatsApp connected successfully
+2025-05-27 22:43:31 info: Connected to Mikrotik at 192.168.8.1:8700
+2025-05-27 22:43:31 info: Monitoring PPPoE connections: 162 active connections
+2025-05-27 22:44:31 info: Monitoring PPPoE connections: 162 active connections
+2025-05-27 22:44:51 info: PPPoE monitoring started with interval 60000ms
+2025-05-27 22:44:51 info: Attempting to start server on configured port: 4500
+2025-05-27 22:44:51 info: Mencoba memulai server pada port 4500...
+2025-05-27 22:44:51 info: Server berhasil berjalan pada port 4500
+2025-05-27 22:44:51 info: Environment: development
+2025-05-27 22:44:51 info: WhatsApp connected successfully
+2025-05-27 22:45:51 info: Connected to Mikrotik at 192.168.8.1:8700
+2025-05-27 22:45:51 info: Monitoring PPPoE connections: 162 active connections
+2025-05-27 22:46:51 info: Monitoring PPPoE connections: 162 active connections
+2025-05-27 22:47:51 info: Monitoring PPPoE connections: 162 active connections
+2025-05-27 22:47:58 info: Message received
+2025-05-27 22:48:16 info: Message received
+2025-05-27 22:48:51 info: Monitoring PPPoE connections: 162 active connections
+2025-05-27 22:49:51 info: Monitoring PPPoE connections: 162 active connections
+2025-05-27 22:50:51 info: Monitoring PPPoE connections: 162 active connections
+2025-05-27 22:51:29 info: PPPoE monitoring started with interval 60000ms
+2025-05-27 22:51:29 info: Attempting to start server on configured port: 4500
+2025-05-27 22:51:29 info: Mencoba memulai server pada port 4500...
+2025-05-27 22:51:29 info: Server berhasil berjalan pada port 4500
+2025-05-27 22:51:29 info: Environment: development
+2025-05-27 22:51:29 info: WhatsApp connected successfully
+2025-05-27 22:51:45 info: Message received
+2025-05-27 22:51:45 info: Connected to Mikrotik at 192.168.8.1:8700
+2025-05-27 22:52:10 info: Message received
+2025-05-27 22:52:29 info: Monitoring PPPoE connections: 162 active connections
+2025-05-27 22:53:29 info: Monitoring PPPoE connections: 162 active connections
+2025-05-27 23:37:14 info: PPPoE monitoring started with interval 60000ms
+2025-05-27 23:37:14 info: Attempting to start server on configured port: 4500
+2025-05-27 23:37:14 info: Mencoba memulai server pada port 4500...
+2025-05-27 23:37:14 info: Server berhasil berjalan pada port 4500
+2025-05-27 23:37:14 info: Environment: development
+2025-05-27 23:37:15 info: WhatsApp connected successfully
+2025-05-27 23:37:37 info: Message received
+2025-05-27 23:37:57 info: Message received
+2025-05-27 23:38:14 info: Connected to Mikrotik at 192.168.8.1:8700
+2025-05-27 23:38:14 info: Monitoring PPPoE connections: 162 active connections
+2025-05-27 23:38:41 info: Message received
+2025-05-27 23:39:14 info: Monitoring PPPoE connections: 162 active connections
+2025-05-27 23:39:26 info: Message received
+2025-05-27 23:40:14 info: Monitoring PPPoE connections: 162 active connections
+2025-05-27 23:40:15 info: Message received
+2025-05-27 23:40:24 info: Message received
+2025-05-27 23:40:30 info: Message received
+2025-05-27 23:41:06 info: Message received
+2025-05-27 23:41:14 info: Monitoring PPPoE connections: 162 active connections
+2025-05-27 23:46:54 info: PPPoE monitoring started with interval 60000ms
+2025-05-27 23:46:54 info: Attempting to start server on configured port: 4500
+2025-05-27 23:46:54 info: Mencoba memulai server pada port 4500...
+2025-05-27 23:46:54 info: Server berhasil berjalan pada port 4500
+2025-05-27 23:46:54 info: Environment: development
+2025-05-27 23:49:36 info: PPPoE monitoring started with interval 60000ms
+2025-05-27 23:49:36 info: Attempting to start server on configured port: 4500
+2025-05-27 23:49:36 info: Mencoba memulai server pada port 4500...
+2025-05-27 23:49:36 info: Server berhasil berjalan pada port 4500
+2025-05-27 23:49:36 info: Environment: development
+2025-05-27 23:49:36 info: WhatsApp connected successfully
+2025-05-27 23:49:59 info: Message received
+2025-05-27 23:50:36 info: Connected to Mikrotik at 192.168.8.1:8700
+2025-05-27 23:50:36 info: Monitoring PPPoE connections: 162 active connections
+2025-05-27 23:51:36 info: Monitoring PPPoE connections: 162 active connections

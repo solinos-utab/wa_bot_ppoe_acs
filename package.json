@@ -1,0 +1,31 @@
+{
+  "name": "botlokal-whatsapp-only",
+  "version": "1.0.0",
+  "description": "WhatsApp Bot untuk GenieACS dan Mikrotik (WhatsApp-Only Version)",
+  "main": "app-whatsapp-only.js",
+  "scripts": {
+    "start": "node app-whatsapp-only.js",
+    "dev": "nodemon app-whatsapp-only.js"
+  },
+  "dependencies": {
+    "@adiwajshing/baileys": "^5.0.0",
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.17",
+    "axios": "^1.3.4",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "moment": "^2.29.4",
+    "node-routeros": "^1.6.9",
+    "pino": "^8.11.0",
+    "qrcode-terminal": "^0.12.0",
+    "winston": "^3.8.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "author": "",
+  "license": "ISC"
+}
