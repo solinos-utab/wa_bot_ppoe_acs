@@ -318,15 +318,32 @@ async function monitorRXPower(threshold = -27) {
                 
                 // Jika rxPower ditemukan dan di bawah threshold
                 if (rxPower !== null && parseFloat(rxPower) < threshold) {
+                    // Cari PPPoE username dari tag perangkat
+                    let pppoeUsername = "Unknown";
+                    if (device._tags && Array.isArray(device._tags)) {
+                        // Cek apakah ada tag yang dimulai dengan "pppoe:" yang berisi username
+                        const pppoeTag = device._tags.find(tag => tag.startsWith('pppoe:'));
+                        if (pppoeTag) {
+                            pppoeUsername = pppoeTag.replace('pppoe:', '');
+                        } else {
+                            // Jika tidak ada tag pppoe, gunakan tag lain yang mungkin berisi nama pelanggan
+                            // Biasanya tag pertama adalah nomor telepon, tag kedua bisa jadi nama pelanggan
+                            if (device._tags.length > 1) {
+                                pppoeUsername = device._tags[1];
+                            }
+                        }
+                    }
+                    
                     const deviceInfo = {
                         id: device._id,
                         rxPower,
                         serialNumber: getDeviceSerialNumber(device),
-                        lastInform: device._lastInform
+                        lastInform: device._lastInform,
+                        pppoeUsername: pppoeUsername
                     };
                     
                     criticalDevices.push(deviceInfo);
-                    console.log(`Perangkat dengan RXPower rendah: ${deviceInfo.id}, RXPower: ${rxPower} dBm`);
+                    console.log(`Perangkat dengan RXPower rendah: ${deviceInfo.id}, RXPower: ${rxPower} dBm, PPPoE: ${pppoeUsername}`);
                 }
             } catch (deviceError) {
                 console.error(`Error memeriksa RXPower untuk perangkat ${device._id}:`, deviceError);
@@ -342,6 +359,7 @@ async function monitorRXPower(threshold = -27) {
             criticalDevices.forEach((device, index) => {
                 message += `${index + 1}. ID: ${device.id.split('-')[2] || device.id}\n`;
                 message += `   S/N: ${device.serialNumber}\n`;
+                message += `   PPPoE: ${device.pppoeUsername}\n`;
                 message += `   RXPower: ${device.rxPower} dBm\n`;
                 message += `   Last Inform: ${new Date(device.lastInform).toLocaleString()}\n\n`;
             });
