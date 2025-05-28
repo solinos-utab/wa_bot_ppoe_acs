@@ -10,7 +10,15 @@ Versi ringan dari Botlokal yang hanya menggunakan fitur WhatsApp tanpa web inter
 - Akses ke Mikrotik API (opsional)
 
 ## Cara Instalasi
-
+```
+apt install git curl -y
+```
+```
+git clone https://github.com/alijayanet/whatsapp
+```
+```
+cd whatsapp
+```
 ### 1. Install Dependensi
 
 ```bash
