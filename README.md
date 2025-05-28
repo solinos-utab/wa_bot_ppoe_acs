@@ -37,7 +37,7 @@ Edit file `.env` dengan pengaturan yang sesuai:
 
 ```
 # Konfigurasi Server
-PORT=4500
+PORT=4500 (jika sudah dipake ganti)
 HOST=localhost
 
 # Konfigurasi Admin
@@ -45,7 +45,7 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD=password
 
 # Konfigurasi GenieACS
-GENIEACS_URL=http://your-genieacs-server:7557
+GENIEACS_URL=http://192.168.8.xx:7557
 GENIEACS_USERNAME=username
 GENIEACS_PASSWORD=password
 
@@ -100,3 +100,4 @@ Scan QR code yang muncul di terminal untuk login WhatsApp.
 - `addwan [nomor] [tipe] [mode]` - Tambah konfigurasi WAN
 - `addtag [device_id] [nomor]` - Tambahkan nomor pelanggan ke perangkat
 - `addpppoe_tag [pppoe_username] [nomor]` - Tambahkan nomor pelanggan berdasarkan PPPoE
+### Jangan lupa untuk mengkonfigurasi file .env terlebih dahulu!
