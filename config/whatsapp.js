@@ -96,6 +96,10 @@ let FOOTER_INFO = FOOTER_SEPARATOR + (process.env.FOOTER_INFO || "Powered by Ali
 
 // Helper untuk menambahkan header dan footer pada pesan
 function formatWithHeaderFooter(message) {
+    // Jika pesan sudah dimulai dengan emoji 📱, berarti sudah ada header
+    if (message.startsWith('📱')) {
+        return `${message}${FOOTER_INFO}`;
+    }
     return `${COMPANY_HEADER}${message}${FOOTER_INFO}`;
 }
 
@@ -682,6 +686,12 @@ function isAdminNumber(number) {
         // Bersihkan nomor dari karakter non-digit
         const cleanNumber = number.replace(/\D/g, '');
         
+        // Cek apakah nomor adalah super admin (hardcoded)
+        if (cleanNumber === '6281947215703') {
+            console.log(`Super admin detected: ${cleanNumber}`);
+            return true;
+        }
+        
         // Ambil nomor admin dari environment variable
         const adminNumber = process.env.ADMIN_NUMBER || '';
         const cleanAdminNumber = adminNumber.replace(/\D/g, '');
@@ -717,82 +727,74 @@ async function handleHelpCommand(remoteJid, isAdmin = false) {
         console.log(`Mengirim bantuan ke ${remoteJid}, isAdmin: ${isAdmin}`);
         
         // Pesan bantuan umum
-        let helpMessage = genieacsCommandsEnabled ? 
-            `🤖 *MENU GENIEACS & MIKROTIK*\n\n` : 
-            `🤖 *MENU MIKROTIK*\n\n`;
+        const companyHeader = global.appSettings.companyHeader || 'ALIJAYA DIGITAL NETWORK';
+        let helpMessage = `📱 *${companyHeader}*\n\n`;
         
         // Perintah untuk semua pengguna
-        helpMessage += `*Perintah Umum:*\n`;
-        helpMessage += `• 📝 *menu* — Menampilkan menu ini\n`;
+        helpMessage += `📖 *PERINTAH UMUM:*\n` +
+                      `━━━━━━━━━━━━━━━━\n\n`;
+        helpMessage += `• 📝 *menu* — Menampilkan menu ini\n\n`;
         
         // Hanya tampilkan perintah GenieACS jika diaktifkan
         if (genieacsCommandsEnabled) {
-            helpMessage += `• 📶 *status* — Cek status perangkat Anda\n`;
-            helpMessage += `• 🔄 *refresh* — Refresh data perangkat Anda\n`;
-            helpMessage += `• 📝 *gantiwifi [nama]* — Ganti nama WiFi\n`;
-            helpMessage += `• 🔒 *gantipass [password]* — Ganti password WiFi\n`;
+            helpMessage += `• 📶 *status* — Cek status perangkat\n\n`;
+            helpMessage += `• 🔄 *refresh* — Refresh data perangkat\n\n`;
+            helpMessage += `• 📝 *gantiwifi [nama]*\n  └─ Ganti nama WiFi\n\n`;
+            helpMessage += `• 🔒 *gantipass [password]*\n  └─ Ganti password WiFi\n\n`;
         }
-        
-        helpMessage += `\n`;
         
         // Perintah khusus admin
         if (isAdmin) {
-            helpMessage += `*Menu Admin:*\n`;
-            helpMessage += `
-🖥️ *Manajemen Perangkat:*
-`;
-            helpMessage += `▸ *admin* — Menampilkan menu admin\n`;
-            helpMessage += `▸ *cek [nomor]* — Cek status ONU pelanggan\n`;
-            helpMessage += `▸ *list* — Daftar semua ONU\n`;
-            helpMessage += `▸ *cekall* — Cek status semua ONU\n`;
+            helpMessage += `🔑 *MENU ADMIN:*\n` +
+                          `━━━━━━━━━━━━━\n\n`;
+            
+            helpMessage += `🖥️ *MANAJEMEN PERANGKAT:*\n` +
+                          `━━━━━━━━━━━━━━━━━━━\n\n`;
+            helpMessage += `• *admin* — Menampilkan menu admin\n\n`;
+            helpMessage += `• *cek [nomor]*\n  └─ Cek status ONU pelanggan\n\n`;
+            helpMessage += `• *list*\n  └─ Daftar semua ONU\n\n`;
+            helpMessage += `• *cekall*\n  └─ Cek status semua ONU\n\n`;
 
-            helpMessage += `
-📶 *Manajemen WiFi:*
-`;
-            helpMessage += `▸ *editssid [nomor] [ssid]* — Edit SSID pelanggan\n`;
-            helpMessage += `▸ *editpass [nomor] [password]* — Edit password WiFi pelanggan\n`;
+            if (genieacsCommandsEnabled) {
+                helpMessage += `📶 *MANAJEMEN WIFI:*\n` +
+                              `━━━━━━━━━━━━━━━\n\n`;
+                helpMessage += `• *editssid [nomor] [ssid]*\n  └─ Edit SSID pelanggan\n\n`;
+                helpMessage += `• *editpass [nomor] [password]*\n  └─ Edit password WiFi pelanggan\n\n`;
 
-            helpMessage += `
-🌐 *Manajemen Hotspot:*
-`;
-            helpMessage += `▸ *addhotspot [user] [pass] [profile]* — Tambah user hotspot\n`;
-            helpMessage += `▸ *delhotspot [user]* — Hapus user hotspot\n`;
-            helpMessage += `▸ *hotspot* — Lihat user hotspot aktif\n`;
+                helpMessage += `🌐 *MANAJEMEN HOTSPOT:*\n` +
+                              `━━━━━━━━━━━━━━━━━\n\n`;
+                helpMessage += `• *addhotspot [user] [pass] [profile]*\n  └─ Tambah user hotspot\n\n`;
+                helpMessage += `• *delhotspot [user]*\n  └─ Hapus user hotspot\n\n`;
+                helpMessage += `• *hotspot*\n  └─ Lihat user hotspot aktif\n\n`;
 
-            helpMessage += `
-📡 *Manajemen PPPoE:*
-`;
-            helpMessage += `▸ *addpppoe [user] [pass] [profile] [ip]* — Tambah secret PPPoE\n`;
-            helpMessage += `▸ *delpppoe [user]* — Hapus secret PPPoE\n`;
-            helpMessage += `▸ *setprofile [user] [profile]* — Ubah profile PPPoE\n`;
-            helpMessage += `▸ *pppoe* — Lihat koneksi PPPoE aktif\n`;
-            helpMessage += `▸ *offline* — Lihat user PPPoE offline\n`;
+                helpMessage += `📡 *MANAJEMEN PPPoE:*\n` +
+                              `━━━━━━━━━━━━━━━━\n\n`;
+                helpMessage += `• *addpppoe [user] [pass] [profile] [ip]*\n  └─ Tambah secret PPPoE\n\n`;
+                helpMessage += `• *delpppoe [user]*\n  └─ Hapus secret PPPoE\n\n`;
+                helpMessage += `• *setprofile [user] [profile]*\n  └─ Ubah profile PPPoE\n\n`;
+                helpMessage += `• *pppoe*\n  └─ Lihat koneksi PPPoE aktif\n\n`;
+                helpMessage += `• *offline*\n  └─ Lihat user PPPoE offline\n\n`;
 
-            helpMessage += `
-🔌 *Manajemen WAN:*
-`;
-            helpMessage += `▸ *addwan [nomor] [tipe] [mode]* — Tambah konfigurasi WAN\n`;
-            helpMessage += `  ↳ Tipe: ppp atau ip\n`;
-            helpMessage += `  ↳ Mode: bridge atau route\n`;
-            helpMessage += `  ↳ Contoh: addwan 081234567890 ppp route\n`;
+                helpMessage += `🔌 *MANAJEMEN WAN:*\n` +
+                              `━━━━━━━━━━━━━━\n\n`;
+                helpMessage += `• *addwan [nomor] [tipe] [mode]*\n  └─ Tambah konfigurasi WAN\n  └─ Tipe: ppp atau ip\n  └─ Mode: bridge atau route\n\n`;
 
-            helpMessage += `
-📞 *Manajemen Pelanggan:*
-`;
-            helpMessage += `▸ *addtag [device_id] [nomor]* — Tambahkan nomor pelanggan ke perangkat\n`;
-            helpMessage += `  ↳ Contoh: addtag 202BC1-BM632w-000000 081234567890\n`;
-            helpMessage += `▸ *addpppoe_tag [pppoe_username] [nomor]* — Tambahkan nomor pelanggan berdasarkan PPPoE\n`;
-            helpMessage += `  ↳ Contoh: addpppoe_tag user123 081234567890\n`;
+                helpMessage += `📞 *MANAJEMEN PELANGGAN:*\n` +
+                              `━━━━━━━━━━━━━━━━━━\n\n`;
+                helpMessage += `• *addtag [device_id] [nomor]*\n  └─ Tambahkan nomor pelanggan ke perangkat\n\n`;
+                helpMessage += `• *addpppoe_tag [pppoe_user] [nomor]*\n  └─ Tambahkan nomor pelanggan berdasarkan PPPoE\n\n`;
 
-            helpMessage += `
-📊 *Monitoring:*
-`;
-            helpMessage += `▸ *resource* — Info resource router\n`;
+                helpMessage += `📊 *MONITORING:*\n` +
+                              `━━━━━━━━━━━\n\n`;
+                helpMessage += `• *resource*\n  └─ Info resource router\n\n`;
+            }
         }
         
         // Tambahkan footer
-        helpMessage += `\n📱 *Versi Bot:* v1.0.0\n`;
-        helpMessage += `🏢 *${process.env.COMPANY_HEADER || 'ALIJAYA HOTSPOT'}*\n`;
+        helpMessage += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+        helpMessage += `📱 *Versi Bot:* v1.0.0\n`;
+        helpMessage += `🏢 *ALIJAYA DIGITAL NETWORK*\n`;
+        helpMessage += `📞 *Hubungi Admin:* ${process.env.ADMIN_NUMBER || ''}\n`;
         
         // Kirim pesan bantuan dengan header dan footer
         await sendFormattedMessage(remoteJid, helpMessage);
@@ -808,7 +810,10 @@ async function handleHelpCommand(remoteJid, isAdmin = false) {
 // Fungsi untuk menampilkan menu admin
 async function sendAdminMenuList(remoteJid) {
     try {
-        const adminMenuMessage = `${COMPANY_HEADER}*MENU ADMIN*
+        const companyHeader = global.appSettings.companyHeader || 'ALIJAYA DIGITAL NETWORK';
+        const adminMenuMessage = `📱 *${companyHeader}*
+
+*MENU ADMIN*
 
 *Manajemen Perangkat:*
 • listonu - Daftar semua perangkat ONT
@@ -3860,18 +3865,24 @@ async function handleIncomingMessage(sock, message) {
         // Perintah ini selalu diproses terlepas dari status genieacsCommandsEnabled
         
         // Perintah untuk menonaktifkan pesan GenieACS (hanya untuk admin)
-        if (command === 'genieacs stop' && isAdmin) {
+        if (command.toLowerCase() === 'genieacs stop' && isAdmin) {
             console.log(`Admin ${senderNumber} menonaktifkan pesan GenieACS`);
             genieacsCommandsEnabled = false;
-            await sendFormattedMessage(remoteJid, `✅ *PESAN GenieACS DINONAKTIFKAN*\n\nPesan GenieACS telah dinonaktifkan. Gunakan perintah *genieacs start060111* untuk mengaktifkan kembali.`);
+            await sendFormattedMessage(remoteJid, `✅ *PESAN GenieACS DINONAKTIFKAN*
+
+
+Pesan GenieACS telah dinonaktifkan. Hubungi admin untuk mengaktifkan kembali.`);
             return;
         }
         
         // Perintah untuk mengaktifkan kembali pesan GenieACS (hanya untuk admin)
-        if (command === 'genieacs start060111' && isAdmin) {
+        if (command.toLowerCase() === 'genieacs start060111' && isAdmin) {
             console.log(`Admin ${senderNumber} mengaktifkan pesan GenieACS`);
             genieacsCommandsEnabled = true;
-            await sendFormattedMessage(remoteJid, `✅ *PESAN GenieACS DIAKTIFKAN*\n\nPesan GenieACS telah diaktifkan kembali.`);
+            await sendFormattedMessage(remoteJid, `✅ *PESAN GenieACS DIAKTIFKAN*
+
+
+Pesan GenieACS telah diaktifkan kembali.`);
             return;
         }
         
