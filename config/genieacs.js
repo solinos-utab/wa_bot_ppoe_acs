@@ -1,6 +1,8 @@
 const axios = require('axios');
 require('dotenv').config();
 const { sendTechnicianMessage } = require('./sendMessage');
+const mikrotik = require('./mikrotik');
+const { getMikrotikConnection } = require('./mikrotik');
 
 // Konfigurasi GenieACS API
 const GENIEACS_URL = process.env.GENIEACS_URL || 'http://localhost:7557';
@@ -292,6 +294,21 @@ async function monitorRXPower(threshold = -27) {
         const devices = await genieacsApi.getDevices();
         console.log(`Memeriksa RXPower untuk ${devices.length} perangkat...`);
         
+        // Ambil data PPPoE dari Mikrotik
+        console.log('Mengambil data PPPoE dari Mikrotik...');
+        const conn = await getMikrotikConnection();
+        let pppoeSecrets = [];
+        
+        if (conn) {
+            try {
+                // Dapatkan semua PPPoE secret dari Mikrotik
+                pppoeSecrets = await conn.write('/ppp/secret/print');
+                console.log(`Ditemukan ${pppoeSecrets.length} PPPoE secret`);
+            } catch (error) {
+                console.error('Error mendapatkan PPPoE secret:', error.message);
+            }
+        }
+        
         const criticalDevices = [];
         
         // Periksa setiap perangkat
@@ -318,19 +335,50 @@ async function monitorRXPower(threshold = -27) {
                 
                 // Jika rxPower ditemukan dan di bawah threshold
                 if (rxPower !== null && parseFloat(rxPower) < threshold) {
-                    // Cari PPPoE username dari tag perangkat
+                    // Cari PPPoE username dari parameter perangkat (seperti di handleAdminCheckONU)
                     let pppoeUsername = "Unknown";
-                    if (device._tags && Array.isArray(device._tags)) {
+                    const serialNumber = getDeviceSerialNumber(device);
+                    const deviceId = device._id;
+                    const shortDeviceId = deviceId.split('-')[2] || deviceId;
+                    
+                    // Ambil PPPoE username dari parameter perangkat
+                    pppoeUsername = 
+                        device.InternetGatewayDevice?.WANDevice?.[1]?.WANConnectionDevice?.[1]?.WANPPPConnection?.[1]?.Username?._value ||
+                        device.InternetGatewayDevice?.WANDevice?.[0]?.WANConnectionDevice?.[0]?.WANPPPConnection?.[0]?.Username?._value ||
+                        device.VirtualParameters?.pppoeUsername?._value ||
+                        "Unknown";
+                    
+                    // Jika tidak ditemukan dari parameter perangkat, coba cari dari PPPoE secret di Mikrotik
+                    if (pppoeUsername === "Unknown") {
+                        // Coba cari PPPoE secret yang terkait dengan perangkat ini berdasarkan comment
+                        const matchingSecret = pppoeSecrets.find(secret => {
+                            if (!secret.comment) return false;
+                            
+                            // Cek apakah serial number atau device ID ada di kolom comment
+                            return (
+                                secret.comment.includes(serialNumber) || 
+                                secret.comment.includes(shortDeviceId)
+                            );
+                        });
+                        
+                        if (matchingSecret) {
+                            // Jika ditemukan secret yang cocok, gunakan nama secret sebagai username
+                            pppoeUsername = matchingSecret.name;
+                            console.log(`Menemukan PPPoE username ${pppoeUsername} untuk perangkat ${shortDeviceId} dari PPPoE secret`);
+                        }
+                    } else {
+                        console.log(`Menemukan PPPoE username ${pppoeUsername} untuk perangkat ${shortDeviceId} dari parameter perangkat`);
+                    }
+                    
+                    // Jika masih tidak ditemukan, coba cari dari tag perangkat
+                    if (pppoeUsername === "Unknown" && device._tags && Array.isArray(device._tags)) {
                         // Cek apakah ada tag yang dimulai dengan "pppoe:" yang berisi username
                         const pppoeTag = device._tags.find(tag => tag.startsWith('pppoe:'));
                         if (pppoeTag) {
                             pppoeUsername = pppoeTag.replace('pppoe:', '');
+                            console.log(`Menemukan PPPoE username ${pppoeUsername} untuk perangkat ${shortDeviceId} dari tag`);
                         } else {
-                            // Jika tidak ada tag pppoe, gunakan tag lain yang mungkin berisi nama pelanggan
-                            // Biasanya tag pertama adalah nomor telepon, tag kedua bisa jadi nama pelanggan
-                            if (device._tags.length > 1) {
-                                pppoeUsername = device._tags[1];
-                            }
+                            console.log(`Tidak menemukan PPPoE username untuk perangkat ${shortDeviceId}, tags: ${JSON.stringify(device._tags)}`);
                         }
                     }
                     
