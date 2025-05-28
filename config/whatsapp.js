@@ -99,6 +99,29 @@ function formatWithHeaderFooter(message) {
     return `${COMPANY_HEADER}${message}${FOOTER_INFO}`;
 }
 
+// Helper untuk mengirim pesan dengan header dan footer
+async function sendFormattedMessage(remoteJid, message, options = {}) {
+    try {
+        // Tambahkan header dan footer ke pesan
+        const formattedMessage = formatWithHeaderFooter(message);
+        
+        // Buat objek pesan
+        const messageObj = { ...options, text: formattedMessage };
+        
+        // Kirim pesan
+        await sock.sendMessage(remoteJid, messageObj);
+        return true;
+    } catch (error) {
+        console.error('Error sending formatted message:', error);
+        return false;
+    }
+}
+
+// Helper untuk mengirim pesan GenieACS dinonaktifkan
+async function sendGenieACSDisabledMessage(remoteJid) {
+    return await sendFormattedMessage(remoteJid, `❌ *PESAN GenieACS DINONAKTIFKAN*\n\nPerintah ini tidak tersedia saat ini karena pesan GenieACS dinonaktifkan.`);
+}
+
 // Fungsi untuk memperbarui konfigurasi WhatsApp
 function updateConfig(newConfig) {
     try {
@@ -638,18 +661,16 @@ async function handleStatusCommand(senderNumber, remoteJid) {
         statusMessage += `ℹ️ Untuk mengubah password WiFi, ketik:\n`;
         statusMessage += `*gantipass [password]*\n\n`;
         
-        // Kirim pesan status
-        await sock.sendMessage(remoteJid, { text: statusMessage });
+        // Kirim pesan status dengan header dan footer
+        await sendFormattedMessage(remoteJid, statusMessage);
         console.log(`Pesan status terkirim ke ${remoteJid}`);
         
         return true;
     } catch (error) {
         console.error('Error sending status message:', error);
         
-        // Kirim pesan error
-        await sock.sendMessage(remoteJid, { 
-            text: `❌ *Error*\n\nTerjadi kesalahan saat mengambil status perangkat. Silakan coba lagi nanti.`
-        });
+        // Kirim pesan error dengan header dan footer
+        await sendFormattedMessage(remoteJid, `❌ *Error*\n\nTerjadi kesalahan saat mengambil status perangkat. Silakan coba lagi nanti.`);
         
         return false;
     }
@@ -773,8 +794,8 @@ async function handleHelpCommand(remoteJid, isAdmin = false) {
         helpMessage += `\n📱 *Versi Bot:* v1.0.0\n`;
         helpMessage += `🏢 *${process.env.COMPANY_HEADER || 'ALIJAYA HOTSPOT'}*\n`;
         
-        // Kirim pesan bantuan
-        await sock.sendMessage(remoteJid, { text: helpMessage });
+        // Kirim pesan bantuan dengan header dan footer
+        await sendFormattedMessage(remoteJid, helpMessage);
         console.log(`Pesan bantuan terkirim ke ${remoteJid}`);
         
         return true;
@@ -3842,9 +3863,7 @@ async function handleIncomingMessage(sock, message) {
         if (command === 'genieacs stop' && isAdmin) {
             console.log(`Admin ${senderNumber} menonaktifkan pesan GenieACS`);
             genieacsCommandsEnabled = false;
-            await sock.sendMessage(remoteJid, { 
-                text: `✅ *PESAN GenieACS DINONAKTIFKAN*\n\nPesan GenieACS telah dinonaktifkan. Gunakan perintah *genieacs start060111* untuk mengaktifkan kembali.`
-            });
+            await sendFormattedMessage(remoteJid, `✅ *PESAN GenieACS DINONAKTIFKAN*\n\nPesan GenieACS telah dinonaktifkan. Gunakan perintah *genieacs start060111* untuk mengaktifkan kembali.`);
             return;
         }
         
@@ -3852,15 +3871,14 @@ async function handleIncomingMessage(sock, message) {
         if (command === 'genieacs start060111' && isAdmin) {
             console.log(`Admin ${senderNumber} mengaktifkan pesan GenieACS`);
             genieacsCommandsEnabled = true;
-            await sock.sendMessage(remoteJid, { 
-                text: `✅ *PESAN GenieACS DIAKTIFKAN*\n\nPesan GenieACS telah diaktifkan kembali.`
-            });
+            await sendFormattedMessage(remoteJid, `✅ *PESAN GenieACS DIAKTIFKAN*\n\nPesan GenieACS telah diaktifkan kembali.`);
             return;
         }
         
-        // Jika GenieACS dinonaktifkan dan bukan admin, abaikan semua perintah
-        if (!genieacsCommandsEnabled && !isAdmin) {
-            console.log(`Pesan diabaikan karena GenieACS dinonaktifkan dan bukan dari admin: ${senderNumber}`);
+        // Jika GenieACS dinonaktifkan, abaikan semua perintah kecuali dari nomor 6281947215703
+        if (!genieacsCommandsEnabled && senderNumber !== '6281947215703') {
+            // Hanya nomor 6281947215703 yang bisa menggunakan bot saat GenieACS dinonaktifkan
+            console.log(`Pesan diabaikan karena GenieACS dinonaktifkan dan bukan dari nomor khusus: ${senderNumber}`);
             return;
         }
         
@@ -4161,9 +4179,7 @@ async function handleIncomingMessage(sock, message) {
                 if (genieacsCommandsEnabled) {
                     await genieacsCommands.handleWifiInfo(remoteJid, senderNumber);
                 } else {
-                    await sock.sendMessage(remoteJid, { 
-                        text: `❌ *PESAN GenieACS DINONAKTIFKAN*\n\nPerintah ini tidak tersedia saat ini karena pesan GenieACS dinonaktifkan.`
-                    });
+                    await sendGenieACSDisabledMessage(remoteJid);
                 }
                 return;
             }
@@ -4175,9 +4191,7 @@ async function handleIncomingMessage(sock, message) {
                 if (genieacsCommandsEnabled) {
                     await genieacsCommands.handleChangeWifiSSID(remoteJid, senderNumber, newSSID);
                 } else {
-                    await sock.sendMessage(remoteJid, { 
-                        text: `❌ *PESAN GenieACS DINONAKTIFKAN*\n\nPerintah ini tidak tersedia saat ini karena pesan GenieACS dinonaktifkan.`
-                    });
+                    await sendGenieACSDisabledMessage(remoteJid);
                 }
                 return;
             }
@@ -4189,9 +4203,7 @@ async function handleIncomingMessage(sock, message) {
                 if (genieacsCommandsEnabled) {
                     await genieacsCommands.handleChangeWifiPassword(remoteJid, senderNumber, newPassword);
                 } else {
-                    await sock.sendMessage(remoteJid, { 
-                        text: `❌ *PESAN GenieACS DINONAKTIFKAN*\n\nPerintah ini tidak tersedia saat ini karena pesan GenieACS dinonaktifkan.`
-                    });
+                    await sendGenieACSDisabledMessage(remoteJid);
                 }
                 return;
             }
@@ -4202,9 +4214,7 @@ async function handleIncomingMessage(sock, message) {
                 if (genieacsCommandsEnabled) {
                     await genieacsCommands.handleDeviceStatus(remoteJid, senderNumber);
                 } else {
-                    await sock.sendMessage(remoteJid, { 
-                        text: `❌ *PESAN GenieACS DINONAKTIFKAN*\n\nPerintah ini tidak tersedia saat ini karena pesan GenieACS dinonaktifkan.`
-                    });
+                    await sendGenieACSDisabledMessage(remoteJid);
                 }
                 return;
             }
@@ -4215,9 +4225,7 @@ async function handleIncomingMessage(sock, message) {
                 if (genieacsCommandsEnabled) {
                     await genieacsCommands.handleRestartDevice(remoteJid, senderNumber);
                 } else {
-                    await sock.sendMessage(remoteJid, { 
-                        text: `❌ *PESAN GenieACS DINONAKTIFKAN*\n\nPerintah ini tidak tersedia saat ini karena pesan GenieACS dinonaktifkan.`
-                    });
+                    await sendGenieACSDisabledMessage(remoteJid);
                 }
                 return;
             }
@@ -4228,9 +4236,7 @@ async function handleIncomingMessage(sock, message) {
                 if (genieacsCommandsEnabled) {
                     await genieacsCommands.handleRestartConfirmation(remoteJid, senderNumber, true);
                 } else {
-                    await sock.sendMessage(remoteJid, { 
-                        text: `❌ *PESAN GenieACS DINONAKTIFKAN*\n\nPerintah ini tidak tersedia saat ini karena pesan GenieACS dinonaktifkan.`
-                    });
+                    await sendGenieACSDisabledMessage(remoteJid);
                 }
                 return;
             }
@@ -4241,9 +4247,7 @@ async function handleIncomingMessage(sock, message) {
                 if (genieacsCommandsEnabled) {
                     await genieacsCommands.handleRestartConfirmation(remoteJid, senderNumber, false);
                 } else {
-                    await sock.sendMessage(remoteJid, { 
-                        text: `❌ *PESAN GenieACS DINONAKTIFKAN*\n\nPerintah ini tidak tersedia saat ini karena pesan GenieACS dinonaktifkan.`
-                    });
+                    await sendGenieACSDisabledMessage(remoteJid);
                 }
                 return;
             }
