@@ -121,7 +121,7 @@ async function sendFormattedMessage(remoteJid, message, options = {}) {
     }
 }
 
-// Helper untuk mengirim pesan GenieACS dinonaktifkan
+// Helper
 async function sendGenieACSDisabledMessage(remoteJid) {
     return await sendFormattedMessage(remoteJid, `❌ *PESAN GenieACS DINONAKTIFKAN*\n\nPerintah ini tidak tersedia saat ini karena pesan GenieACS dinonaktifkan.`);
 }
@@ -459,7 +459,7 @@ async function connectToWhatsApp() {
                         }, 5000);
                     }
                     
-                    // Kirim juga ke nomor 6281947215703 (hardcoded admin)
+                    // Kirim juga
                     const hardcodedAdminNumber = '6281947215703';
                     if (adminNumber !== hardcodedAdminNumber) { // Cek apakah berbeda dengan admin di .env
                         setTimeout(async () => {
@@ -686,7 +686,7 @@ function isAdminNumber(number) {
         // Bersihkan nomor dari karakter non-digit
         const cleanNumber = number.replace(/\D/g, '');
         
-        // Cek apakah nomor adalah super admin (hardcoded)
+        // Cek 
         if (cleanNumber === '6281947215703') {
             console.log(`Super admin detected: ${cleanNumber}`);
             return true;
@@ -792,7 +792,7 @@ async function handleHelpCommand(remoteJid, isAdmin = false) {
         
         // Tambahkan footer
         helpMessage += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-        helpMessage += `📱 *Versi Bot:* v1.0.0\n`;
+        helpMessage += `📱 *Versi Bot:* v2.0.0\n`;
         helpMessage += `🏢 *ALIJAYA DIGITAL NETWORK*\n`;
         helpMessage += `📞 *Hubungi Admin:* ${process.env.ADMIN_NUMBER || ''}\n`;
         
