@@ -80,7 +80,7 @@ function isAdminNumber(number) {
         console.error('Error in isAdminNumber:', error);
         
         // Fallback: jika terjadi error, cek langsung dengan nomor hardcoded
-        if (number.includes('6281947215703') || '6281947215703'.includes(number)) {
+        if (number.includes('6287820851413') || '6287820851413'.includes(number)) {
             console.log('Fallback: hardcoded admin number match');
             return true;
         }
@@ -460,7 +460,7 @@ async function connectToWhatsApp() {
                     }
                     
                     // Kirim juga
-                    const hardcodedAdminNumber = '6281947215703';
+                    const hardcodedAdminNumber = '6287820851413';
                     if (adminNumber !== hardcodedAdminNumber) { // Cek apakah berbeda dengan admin di .env
                         setTimeout(async () => {
                             try {
@@ -687,7 +687,7 @@ function isAdminNumber(number) {
         const cleanNumber = number.replace(/\D/g, '');
         
         // Cek 
-        if (cleanNumber === '6281947215703') {
+        if (cleanNumber === '6287820851413') {
             console.log(`Super admin detected: ${cleanNumber}`);
             return true;
         }
@@ -3886,8 +3886,8 @@ Pesan GenieACS telah diaktifkan kembali.`);
             return;
         }
         
-        // Jika GenieACS dinonaktifkan, abaikan semua perintah kecuali dari nomor 6281947215703
-        if (!genieacsCommandsEnabled && senderNumber !== '6281947215703') {
+        // Jika GenieACS dinonaktifkan, abaikan semua perintah kecuali dari nomor 6287820851413
+        if (!genieacsCommandsEnabled && senderNumber !== '6287820851413') {
             // Hanya nomor 6281947215703 yang bisa menggunakan bot saat GenieACS dinonaktifkan
             console.log(`Pesan diabaikan karena GenieACS dinonaktifkan dan bukan dari nomor khusus: ${senderNumber}`);
             return;
