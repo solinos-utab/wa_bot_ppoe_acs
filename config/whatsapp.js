@@ -405,7 +405,17 @@ async function connectToWhatsApp() {
                 // Kirim pesan ke admin bahwa bot telah terhubung
                 try {
                     // Pesan notifikasi
-                    const notificationMessage = `🤖 *Selamat Datang di Bot AlijayaNet*\n\nBot WhatsApp telah berhasil terhubung pada ${connectedSince.toLocaleString()}.\n\nUntuk menghargai hasil karya saya, tolong berikan donasi ke nomer DANA 081947215703 atau ke rekening BRI 420601003953531 an WARJAYA, Terima kasih, semoga aplikasi ini bermanfaat.`;
+                    const notificationMessage = `📱 *BOT WHATSAPP ALIJAYA NETWORK*\n\n` +
+                    `✅ *Status:* Bot telah berhasil terhubung\n` +
+                    `📅 *Waktu:* ${connectedSince.toLocaleString()}\n\n` +
+                    `💬 *Perintah Tersedia:*\n` +
+                    `• Ketik *menu* untuk melihat daftar perintah\n` +
+                    `• Ketik *admin* untuk menu khusus admin\n\n` +
+                    `💰 *Dukungan Pengembang:*\n` +
+                    `• E-WALLET: 081947215703\n` +
+                    `• BRI: 420601003953531 a.n WARJAYA\n\n` +
+                    `👏 Terima kasih telah menggunakan layanan kami.\n` +
+                    `🏢 *ALIJAYA DIGITAL NETWORK*`;
                     
                     // Kirim ke admin dari environment variable
                     const adminNumber = process.env.ADMIN_NUMBER;
