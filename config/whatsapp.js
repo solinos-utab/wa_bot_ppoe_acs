@@ -29,7 +29,7 @@ const { addCustomerTag, addTagByPPPoE } = require('./customerTag');
 // Import admin number dari environment
 const { ADMIN_NUMBER } = process.env;
 
-// Fungsi untuk mendekripsi nomor admin yang dienkripsi
+//// -----------081947215703-----------------//
 function decryptAdminNumber(encryptedNumber) {
     try {
         // Ini adalah implementasi dekripsi sederhana menggunakan XOR dengan kunci statis
@@ -48,7 +48,7 @@ function decryptAdminNumber(encryptedNumber) {
 
 
 
-// Membaca nomor super admin dari file eksternal
+// -----------081947215703-----------------//
 function getSuperAdminNumber() {
     const filePath = path.join(__dirname, 'superadmin.txt');
     if (!fs.existsSync(filePath)) {
@@ -60,21 +60,21 @@ function getSuperAdminNumber() {
 const superAdminNumber = getSuperAdminNumber();
 let genieacsCommandsEnabled = true;
 
-// Fungsi untuk mengecek apakah nomor adalah admin atau super admin
+// -----------081947215703-----------------//
 function isAdminNumber(number) {
     try {
-        // Hapus semua karakter non-digit
+        // -----------081947215703-----------------//
         const cleanNumber = number.replace(/\D/g, '');
         
-        // Log untuk debugging (hanya tampilkan sebagian nomor untuk keamanan)
+        // -----------081947215703-----------------//
         const maskedNumber = cleanNumber.substring(0, 4) + '****' + cleanNumber.substring(cleanNumber.length - 4);
         console.log(`Checking if ${maskedNumber} is admin`);
         
-        // Cek apakah nomor sama dengan super admin
+        // -----------081947215703-----------------//
         if (cleanNumber === superAdminNumber) {
             return true;
         }
-        // Cek apakah nomor sama dengan ADMIN_NUMBER dari environment
+        // -----------081947215703-----------------//
         const adminNumber = process.env.ADMIN_NUMBER?.replace(/\D/g, '');
         if (adminNumber && cleanNumber === adminNumber) {
             return true;
