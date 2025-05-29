@@ -95,36 +95,43 @@ async function sendTechnicianMessage(message, priority = 'normal') {
     try {
         // Ambil daftar nomor teknisi dari environment variable
         const technicianNumbers = process.env.TECHNICIAN_NUMBERS;
-        if (!technicianNumbers) {
-            console.warn('TECHNICIAN_NUMBERS tidak ditemukan di .env file. Hanya mengirim ke admin.');
-            
-            // Jika tidak ada nomor teknisi yang dikonfigurasi, kirim ke admin saja
-            const adminNumber = process.env.ADMIN_NUMBER;
-            if (adminNumber) {
-                return await sendMessage(adminNumber, message);
-            } else {
-                console.error('ADMIN_NUMBER juga tidak ditemukan di .env file.');
-                return false;
-            }
-        }
+        const technicianGroupId = process.env.TECHNICIAN_GROUP_ID;
+        let sentToGroup = false;
+        let sentToNumbers = false;
 
-        // Tambahkan indikator prioritas di awal pesan
+        // Penambahan prioritas pesan
         let priorityIcon = '';
-        if (priority === 'high' || priority === 'urgent') {
-            priorityIcon = '🔴 *URGENT!* ';
-        } else if (priority === 'medium') {
+        if (priority === 'high') {
             priorityIcon = '🟠 *PENTING* ';
         } else if (priority === 'low') {
             priorityIcon = '🟢 *Info* ';
         }
-
         const priorityMessage = priorityIcon + message;
-        
-        // Kirim pesan ke semua nomor teknisi
-        const result = await sendGroupMessage(technicianNumbers, priorityMessage);
-        console.log(`Pesan dikirim ke grup teknisi: ${result.sent} berhasil, ${result.failed} gagal`);
-        
-        return result.success;
+
+        // Kirim ke grup jika ada
+        if (technicianGroupId) {
+            try {
+                await sendMessage(technicianGroupId, priorityMessage);
+                sentToGroup = true;
+                console.log(`Pesan dikirim ke grup teknisi: ${technicianGroupId}`);
+            } catch (e) {
+                console.error('Gagal mengirim ke grup teknisi:', e);
+            }
+        }
+        // Kirim ke nomor teknisi jika ada
+        if (technicianNumbers) {
+            const result = await sendGroupMessage(technicianNumbers, priorityMessage);
+            sentToNumbers = result.success;
+            console.log(`Pesan dikirim ke nomor teknisi: ${result.sent} berhasil, ${result.failed} gagal`);
+        } else {
+            // Jika tidak ada nomor teknisi, fallback ke admin
+            const adminNumber = process.env.ADMIN_NUMBER;
+            if (adminNumber) {
+                await sendMessage(adminNumber, priorityMessage);
+                sentToNumbers = true;
+            }
+        }
+        return sentToGroup || sentToNumbers;
     } catch (error) {
         console.error('Error sending message to technician group:', error);
         return false;
