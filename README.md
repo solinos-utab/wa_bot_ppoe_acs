@@ -30,7 +30,7 @@ npm install
 Salin file `.env.example` menjadi `.env` dan sesuaikan:
 
 ```bash
-cp env-example .env
+mv env-example.txt .env
 ```
 
 Edit file `.env` dengan pengaturan yang sesuai:
