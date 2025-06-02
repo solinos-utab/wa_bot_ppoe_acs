@@ -49,7 +49,7 @@ GENIEACS_URL=http://192.168.8.xx:7557
 GENIEACS_USERNAME=username
 GENIEACS_PASSWORD=password
 
-# Konfigurasi Mikrotik (opsional)
+# Konfigurasi Mikrotik
 MIKROTIK_HOST=192.168.1.1
 MIKROTIK_PORT=8728
 MIKROTIK_USER=admin
