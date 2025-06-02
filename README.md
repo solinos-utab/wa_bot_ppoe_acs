@@ -102,3 +102,4 @@ menggunakan nomer yang di daftarkan sebagai admin di ENV
 - `addtag [device_id] [nomor]` - Tambahkan nomor pelanggan ke perangkat
 - `addpppoe_tag [pppoe_username] [nomor]` - Tambahkan nomor pelanggan berdasarkan PPPoE
 ### Jangan lupa untuk mengkonfigurasi file .env terlebih dahulu!
+### Untuk tetap berjalan saat console di close gunakan pm2
