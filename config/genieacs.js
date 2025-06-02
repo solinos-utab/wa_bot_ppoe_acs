@@ -402,7 +402,7 @@ async function monitorRXPower(threshold = -27) {
         if (criticalDevices.length > 0) {
             // Buat pesan peringatan
             let message = `⚠️ *PERINGATAN: REDAMAN TINGGI* ⚠️\n\n`;
-            message += `${criticalDevices.length} perangkat memiliki nilai RXPower di bawah ${threshold} dBm:\n\n`;
+            message += `${criticalDevices.length} perangkat memiliki nilai RXPower di atas ${threshold} dBm:\n\n`;
             
             criticalDevices.forEach((device, index) => {
                 message += `${index + 1}. ID: ${device.id.split('-')[2] || device.id}\n`;
@@ -424,7 +424,7 @@ async function monitorRXPower(threshold = -27) {
         return {
             success: true,
             criticalDevices,
-            message: `${criticalDevices.length} perangkat memiliki RXPower di bawah threshold`
+            message: `${criticalDevices.length} perangkat memiliki RXPower di atas threshold`
         };
     } catch (error) {
         console.error('Error memantau RXPower:', error);
