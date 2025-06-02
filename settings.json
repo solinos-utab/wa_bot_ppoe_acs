@@ -15,9 +15,9 @@
   "main_interface": "ether1-ISP",
   "pppoe_monitor_enable": true,
   "technician_numbers": [
-    "083807665697,082218094778"
+    "08380xxxxxxxx,0822xxxxxxxxxx"
   ],
-  "technician_group_id": "120363029715729275@g.us",
+  "technician_group_id": "1203630xxxxxxxxxxxx@g.us",
   "whatsapp_session_path": "./whatsapp-session",
   "whatsapp_keep_alive": true,
   "whatsapp_restart_on_error": true,
