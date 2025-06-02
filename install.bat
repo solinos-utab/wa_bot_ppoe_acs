@@ -19,7 +19,7 @@ for /f "tokens=1,2,3 delims=." %%a in ('node -v') do (
 )
 set NODE_MAJOR=%NODE_MAJOR:~1%
 if %NODE_MAJOR% LSS 20 (
-    echo [ERROR] Versi Node.js terlalu rendah. Minimal Node.js v14.
+    echo [ERROR] Versi Node.js terlalu rendah. Minimal Node.js v20.
     echo Versi Node.js Anda: 
     node -v
     echo Silakan update Node.js terlebih dahulu.

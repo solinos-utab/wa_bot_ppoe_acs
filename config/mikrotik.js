@@ -167,6 +167,12 @@ async function getRouterResources() {
     }
 }
 
+function safeNumber(val) {
+    if (val === undefined || val === null) return 0;
+    const n = Number(val);
+    return isNaN(n) ? 0 : n;
+}
+
 // Fungsi untuk mendapatkan informasi resource yang diformat
 async function getResourceInfo() {
     // Ambil traffic interface utama (default ether1)
@@ -180,23 +186,19 @@ async function getResourceInfo() {
         if (!resources) {
             return { success: false, message: 'Resource router tidak ditemukan', data: null };
         }
-        // Validasi dan fallback
-        function safeMB(val) {
-            if (!val || isNaN(val) || val <= 0) return 'N/A';
-            return val;
-        }
-        const totalMem = Number(resources['total-memory']) || 0;
-        const freeMem = Number(resources['free-memory']) || 0;
+        // Gunakan safeNumber untuk parsing
+        const totalMem = safeNumber(resources['total-memory']);
+        const freeMem = safeNumber(resources['free-memory']);
         const usedMem = totalMem > 0 && freeMem >= 0 ? totalMem - freeMem : 0;
-        const totalDisk = Number(resources['total-hdd-space']) || 0;
-        const freeDisk = Number(resources['free-hdd-space']) || 0;
+        const totalDisk = safeNumber(resources['total-hdd-space']);
+        const freeDisk = safeNumber(resources['free-hdd-space']);
         const usedDisk = totalDisk > 0 && freeDisk >= 0 ? totalDisk - freeDisk : 0;
         const data = {
             trafficRX: traffic && traffic.rx ? (traffic.rx / 1000000).toFixed(2) : '0.00',
             trafficTX: traffic && traffic.tx ? (traffic.tx / 1000000).toFixed(2) : '0.00',
-            cpuLoad: resources['cpu-load'] || '0',
-            cpuCount: resources['cpu-count'] || 'N/A',
-            cpuFrequency: resources['cpu-frequency'] || 'N/A',
+            cpuLoad: safeNumber(resources['cpu-load']),
+            cpuCount: safeNumber(resources['cpu-count']),
+            cpuFrequency: safeNumber(resources['cpu-frequency']),
             architecture: resources['architecture-name'] || 'N/A',
             model: resources['model'] || 'N/A',
             serialNumber: resources['serial-number'] || 'N/A',
@@ -204,12 +206,12 @@ async function getResourceInfo() {
             voltage: resources['voltage'] || resources['board-voltage'] || 'N/A',
             temperature: resources['temperature'] || resources['board-temperature'] || 'N/A',
             badBlocks: resources['bad-blocks'] || 'N/A',
-            memoryUsed: safeMB(Math.round(usedMem / 1024 / 1024)),
-            memoryFree: safeMB(Math.round(freeMem / 1024 / 1024)),
-            totalMemory: safeMB(Math.round(totalMem / 1024 / 1024)),
-            diskUsed: safeMB(Math.round(usedDisk / 1024 / 1024)),
-            diskFree: safeMB(Math.round(freeDisk / 1024 / 1024)),
-            totalDisk: safeMB(Math.round(totalDisk / 1024 / 1024)),
+            memoryUsed: Math.round(usedMem / 1024 / 1024),
+            memoryFree: Math.round(freeMem / 1024 / 1024),
+            totalMemory: Math.round(totalMem / 1024 / 1024),
+            diskUsed: Math.round(usedDisk / 1024 / 1024),
+            diskFree: Math.round(freeDisk / 1024 / 1024),
+            totalDisk: Math.round(totalDisk / 1024 / 1024),
             uptime: resources.uptime || 'N/A',
             version: resources.version || 'N/A',
             boardName: resources['board-name'] || 'N/A'

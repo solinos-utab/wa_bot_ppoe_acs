@@ -42,7 +42,7 @@ async function handleAddHotspotUser(remoteJid, params) {
     const result = await addHotspotUser(username, password, profile);
 
     await sock.sendMessage(remoteJid, { 
-        text: `${result.success ? '✅' : '❌'} ${result.message}\n\n` +
+        text: `${result && result.success ? '✅' : '❌'} ${result && result.message ? result.message : 'Terjadi kesalahan'}\n\n` +
               `Username: ${username}\n` +
               `Profile: ${profile}`
     });
@@ -72,7 +72,7 @@ async function handleAddPPPoESecret(remoteJid, params) {
     const result = await addPPPoESecret(username, password, profile, localAddress);
 
     await sock.sendMessage(remoteJid, { 
-        text: `${result.success ? '✅' : '❌'} ${result.message}\n\n` +
+        text: `${result && result.success ? '✅' : '❌'} ${result && result.message ? result.message : 'Terjadi kesalahan'}\n\n` +
               `Username: ${username}\n` +
               `Profile: ${profile}\n` +
               `IP: ${localAddress || 'Menggunakan IP dari pool'}`
@@ -101,7 +101,7 @@ async function handleChangePPPoEProfile(remoteJid, params) {
     const result = await setPPPoEProfile(username, newProfile);
 
     await sock.sendMessage(remoteJid, { 
-        text: `${result ? '✅' : '❌'} ${result ? 'Profile berhasil diubah' : 'Gagal mengubah profile'}\n\n` +
+        text: `${result && result.success ? '✅' : '❌'} ${result && result.message ? result.message : 'Terjadi kesalahan'}\n\n` +
               `Username: ${username}\n` +
               `Profile Baru: ${newProfile}`
     });
@@ -113,33 +113,43 @@ async function handleResourceInfo(remoteJid) {
         console.error('Sock instance not set');
         return;
     }
-
     const result = await getResourceInfo();
-
-    if (result) {
-        await sock.sendMessage(remoteJid, { 
-            text: `📊 *INFO RESOURCE ROUTER*\n\n` +
-                  `💻 *CPU*\n` +
-                  `• Load: ${result.cpuLoad}%\n\n` +
-                  `💾 *MEMORY*\n` +
-                  `• Used: ${result.memoryUsed} MB\n` +
-                  `• Total: ${result.totalMemory} MB\n` +
-                  `• Usage: ${((result.memoryUsed/result.totalMemory)*100).toFixed(1)}%\n\n` +
-                  `💿 *DISK*\n` +
-                  `• Used: ${result.diskUsed} MB\n` +
-                  `• Total: ${result.totalDisk} MB\n` +
-                  `• Usage: ${((result.diskUsed/result.totalDisk)*100).toFixed(1)}%\n\n` +
-                  `⏰ *UPTIME*\n` +
-                  `• ${result.uptime}\n\n` +
-                  `ℹ️ *SYSTEM*\n` +
-                  `• Version: ${result.version}\n` +
-                  `• Board: ${result.boardName}`
-        });
-    } else {
-        await sock.sendMessage(remoteJid, { 
-            text: `❌ Gagal mendapatkan informasi resource router`
-        });
+    if (!result.success || !result.data) {
+        await sock.sendMessage(remoteJid, { text: `❌ ${result.message}` });
+        return;
     }
+    const data = result.data;
+    await sock.sendMessage(remoteJid, { 
+        text: `📊 *INFO RESOURCE ROUTER*\n\n` +
+              `💻 *CPU*\n` +
+              `• Load: ${data.cpuLoad}%\n` +
+              `• Count: ${data.cpuCount}\n` +
+              `• Frequency: ${data.cpuFrequency} MHz\n\n` +
+              `💾 *MEMORY*\n` +
+              `• Total: ${data.totalMemory} MB\n` +
+              `• Free: ${data.memoryFree} MB\n` +
+              `• Used: ${data.memoryUsed} MB\n` +
+              `• Usage: ${data.totalMemory ? ((data.memoryUsed/data.totalMemory)*100).toFixed(1) : 0}%\n\n` +
+              `💿 *DISK*\n` +
+              `• Total: ${data.totalDisk} MB\n` +
+              `• Free: ${data.diskFree} MB\n` +
+              `• Used: ${data.diskUsed} MB\n` +
+              `• Usage: ${data.totalDisk ? ((data.diskUsed/data.totalDisk)*100).toFixed(1) : 0}%\n\n` +
+              `📶 *TRAFFIC* (${process.env.MAIN_INTERFACE || 'ether1'})\n` +
+              `• RX: ${data.trafficRX} Mbps\n` +
+              `• TX: ${data.trafficTX} Mbps\n\n` +
+              `⏰ *UPTIME*\n` +
+              `• ${data.uptime}\n\n` +
+              `🔧 *BOARD*\n` +
+              `• Model: ${data.model}\n` +
+              `• Serial: ${data.serialNumber}\n` +
+              `• Board: ${data.boardName}\n` +
+              `• Architecture: ${data.architecture}\n` +
+              `• Firmware: ${data.firmware}\n` +
+              `• Bad Blocks: ${data.badBlocks}\n` +
+              `• Voltage: ${data.voltage}\n` +
+              `• Temperature: ${data.temperature}`
+    });
 }
 
 // Handler untuk melihat user hotspot aktif
@@ -148,39 +158,35 @@ async function handleActiveHotspotUsers(remoteJid) {
         console.error('Sock instance not set');
         return;
     }
-
-    const users = await getActiveHotspotUsers();
-
+    const result = await getActiveHotspotUsers();
+    if (!result.success) {
+        await sock.sendMessage(remoteJid, { text: `❌ ${result.message}` });
+        return;
+    }
+    const users = result.data;
     let message = '👥 *DAFTAR USER HOTSPOT AKTIF*\n\n';
-    
     if (!users || users.length === 0) {
         message += 'Tidak ada user hotspot yang aktif';
     } else {
         message += `Total: ${users.length} user\n\n`;
-        
         users.forEach((user, index) => {
-            // Batasi jumlah user yang ditampilkan untuk menghindari pesan terlalu panjang
             if (index < 20) {
                 message += `${index + 1}. *User: ${user.user || 'N/A'}*\n` +
                           `   • IP: ${user.address || 'N/A'}\n` +
                           `   • Uptime: ${user.uptime || 'N/A'}\n`;
-                          
                 if (user['bytes-in'] && user['bytes-out']) {
                     const bytesIn = parseInt(user['bytes-in']) || 0;
                     const bytesOut = parseInt(user['bytes-out']) || 0;
                     message += `   • Download: ${(bytesIn/1024/1024).toFixed(2)} MB\n` +
                               `   • Upload: ${(bytesOut/1024/1024).toFixed(2)} MB\n`;
                 }
-                
                 message += '\n';
             }
         });
-        
         if (users.length > 20) {
             message += `... dan ${users.length - 20} user lainnya`;
         }
     }
-    
     await sock.sendMessage(remoteJid, { text: message });
 }
 
@@ -190,36 +196,31 @@ async function handleActivePPPoE(remoteJid) {
         console.error('Sock instance not set');
         return;
     }
-
-    const connections = await getActivePPPoEConnections();
-
+    const result = await getActivePPPoEConnections();
+    if (!result.success) {
+        await sock.sendMessage(remoteJid, { text: `❌ ${result.message}` });
+        return;
+    }
+    const connections = result.data;
     let message = '📡 *DAFTAR KONEKSI PPPoE AKTIF*\n\n';
-    
     if (!connections || connections.length === 0) {
         message += 'Tidak ada koneksi PPPoE yang aktif';
     } else {
         message += `Total: ${connections.length} koneksi\n\n`;
-        
-        // Batasi jumlah koneksi yang ditampilkan untuk menghindari pesan terlalu panjang
         const maxDisplay = 20;
         const displayConnections = connections.slice(0, maxDisplay);
-        
         displayConnections.forEach((conn, index) => {
             message += `${index + 1}. *User: ${conn.name || 'N/A'}*\n`;
-            
             if (conn.service) message += `   • Service: ${conn.service}\n`;
             if (conn.address) message += `   • IP: ${conn.address}\n`;
             if (conn.uptime) message += `   • Uptime: ${conn.uptime}\n`;
             if (conn.caller) message += `   • Caller ID: ${conn.caller}\n`;
-            
             message += '\n';
         });
-        
         if (connections.length > maxDisplay) {
             message += `... dan ${connections.length - maxDisplay} koneksi lainnya`;
         }
     }
-    
     await sock.sendMessage(remoteJid, { text: message });
 }
 
@@ -245,7 +246,7 @@ async function handleDeleteHotspotUser(remoteJid, params) {
     const result = await deleteHotspotUser(username);
 
     await sock.sendMessage(remoteJid, { 
-        text: `${result.success ? '✅' : '❌'} ${result.message}\n\n` +
+        text: `${result && result.success ? '✅' : '❌'} ${result && result.message ? result.message : 'Terjadi kesalahan'}\n\n` +
               `Username: ${username}`
     });
 }
@@ -272,7 +273,7 @@ async function handleDeletePPPoESecret(remoteJid, params) {
     const result = await deletePPPoESecret(username);
 
     await sock.sendMessage(remoteJid, { 
-        text: `${result.success ? '✅' : '❌'} ${result.message}\n\n` +
+        text: `${result && result.success ? '✅' : '❌'} ${result && result.message ? result.message : 'Terjadi kesalahan'}\n\n` +
               `Username: ${username}`
     });
 }

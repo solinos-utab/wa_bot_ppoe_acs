@@ -132,7 +132,7 @@ async function findDeviceById(deviceId) {
 }
 
 // Fungsi untuk menambahkan tag berdasarkan PPPoE Username
-async function addTagByPPPoE(remoteJid, params) {
+async function addTagByPPPoE(remoteJid, params, sock) {
     try {
         // Ekstrak parameter
         if (params.length < 2) {
