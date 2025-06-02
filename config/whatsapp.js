@@ -12,12 +12,14 @@ const genieacsCommands = require('./genieacs-commands');
 const {
     addHotspotUser,
     addPPPoESecret,
-    changePPPoEProfile,
+    setPPPoEProfile,
     getResourceInfo,
     getActiveHotspotUsers,
     getActivePPPoEConnections,
     deleteHotspotUser,
-    deletePPPoESecret
+    deletePPPoESecret,
+    getInactivePPPoEUsers,
+    getOfflinePPPoEUsers
 } = require('./mikrotik');
 
 // Import modul addWAN
@@ -29,7 +31,7 @@ const { addCustomerTag, addTagByPPPoE } = require('./customerTag');
 // Import admin number dari environment
 const { ADMIN_NUMBER } = process.env;
 
-//// -----------081947215703-----------------//
+// Fungsi untuk mendekripsi nomor admin yang dienkripsi
 function decryptAdminNumber(encryptedNumber) {
     try {
         // Ini adalah implementasi dekripsi sederhana menggunakan XOR dengan kunci statis
@@ -48,7 +50,7 @@ function decryptAdminNumber(encryptedNumber) {
 
 
 
-// -----------081947215703-----------------//
+// Membaca nomor super admin dari file eksternal
 function getSuperAdminNumber() {
     const filePath = path.join(__dirname, 'superadmin.txt');
     if (!fs.existsSync(filePath)) {
@@ -60,21 +62,21 @@ function getSuperAdminNumber() {
 const superAdminNumber = getSuperAdminNumber();
 let genieacsCommandsEnabled = true;
 
-// -----------081947215703-----------------//
+// Fungsi untuk mengecek apakah nomor adalah admin atau super admin
 function isAdminNumber(number) {
     try {
-        // -----------081947215703-----------------//
+        // Hapus semua karakter non-digit
         const cleanNumber = number.replace(/\D/g, '');
         
-        // -----------081947215703-----------------//
+        // Log untuk debugging (hanya tampilkan sebagian nomor untuk keamanan)
         const maskedNumber = cleanNumber.substring(0, 4) + '****' + cleanNumber.substring(cleanNumber.length - 4);
         console.log(`Checking if ${maskedNumber} is admin`);
         
-        // -----------081947215703-----------------//
+        // Cek apakah nomor sama dengan super admin
         if (cleanNumber === superAdminNumber) {
             return true;
         }
-        // -----------081947215703-----------------//
+        // Cek apakah nomor sama dengan ADMIN_NUMBER dari environment
         const adminNumber = process.env.ADMIN_NUMBER?.replace(/\D/g, '');
         if (adminNumber && cleanNumber === adminNumber) {
             return true;
@@ -102,11 +104,19 @@ let FOOTER_INFO = FOOTER_SEPARATOR + (process.env.FOOTER_INFO || "Powered by Ali
 
 // Helper untuk menambahkan header dan footer pada pesan
 function formatWithHeaderFooter(message) {
+    const appSettings = getAppSettings();
+    // Tambahkan icon dan bold pada header/footer
+    const headerIcon = "📢";
+    const footerIcon = "🏢";
+    const header = `${headerIcon} *${appSettings.company_header || "ALIJAYA DIGITAL NETWORK"}*\n\n`;
+    const footerSeparator = "\n\n━━━━━━━━━━━━━━━━━━━━━━\n";
+    const footer = `${footerSeparator}${footerIcon} *${appSettings.footer_info || "Powered by Alijaya Digital Network"}*`;
+
     // Jika pesan sudah dimulai dengan emoji 📱, berarti sudah ada header
     if (message.startsWith('📱')) {
-        return `${message}${FOOTER_INFO}`;
+        return `${message}${footer}`;
     }
-    return `${COMPANY_HEADER}${message}${FOOTER_INFO}`;
+    return `${header}${message}${footer}`;
 }
 
 // Helper untuk mengirim pesan dengan header dan footer
@@ -616,24 +626,45 @@ async function handleStatusCommand(senderNumber, remoteJid) {
             }
         }
 
-        // Ambil daftar user terhubung ke SSID 1 (2.4GHz)
+        // Ambil daftar user terhubung ke SSID 1 (2.4GHz) saja, lengkap dengan IP jika ada
         let associatedDevices = [];
         try {
-            // Path standar TR-069: InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.AssociatedDevice
+            // Ambil dari AssociatedDevice (utama)
             const assocObj = device?.InternetGatewayDevice?.LANDevice?.['1']?.WLANConfiguration?.['1']?.AssociatedDevice;
             if (assocObj && typeof assocObj === 'object') {
                 for (const key in assocObj) {
-                    // Hanya proses jika key adalah angka (index array)
                     if (!isNaN(key)) {
                         const entry = assocObj[key];
                         const mac = entry?.MACAddress?._value || entry?.MACAddress || '-';
                         const hostname = entry?.HostName?._value || entry?.HostName || '-';
-                        associatedDevices.push({ mac, hostname });
+                        const ip = entry?.IPAddress?._value || entry?.IPAddress || '-';
+                        associatedDevices.push({ mac, hostname, ip });
+                    }
+                }
+            }
+
+            // Fallback: Jika AssociatedDevice kosong, ambil dari Hosts.Host yang interface-nya IEEE802_11 dan terkait SSID 1
+            if (associatedDevices.length === 0) {
+                const hostsObj = device?.InternetGatewayDevice?.LANDevice?.['1']?.Hosts?.Host;
+                if (hostsObj && typeof hostsObj === 'object') {
+                    for (const key in hostsObj) {
+                        if (!isNaN(key)) {
+                            const entry = hostsObj[key];
+                            const interfaceType = entry?.InterfaceType?._value || entry?.InterfaceType || '';
+                            const ssidRef = entry?.SSIDReference?._value || entry?.SSIDReference || '';
+                            // Hanya WiFi SSID 1 (biasanya mengandung 'WLANConfiguration.1')
+                            if (interfaceType === 'IEEE802_11' && (!ssidRef || ssidRef.includes('WLANConfiguration.1'))) {
+                                const mac = entry?.MACAddress?._value || entry?.MACAddress || '-';
+                                const hostname = entry?.HostName?._value || entry?.HostName || '-';
+                                const ip = entry?.IPAddress?._value || entry?.IPAddress || '-';
+                                associatedDevices.push({ mac, hostname, ip });
+                            }
+                        }
                     }
                 }
             }
         } catch (e) {
-            console.error('Error parsing associated devices:', e);
+            console.error('Error parsing associated devices SSID 1:', e);
         }
         
         // Ambil informasi uptime
@@ -653,10 +684,10 @@ async function handleStatusCommand(senderNumber, remoteJid) {
         if (associatedDevices.length > 0) {
             statusMessage += `└─ *Daftar User SSID 1 (2.4GHz):*\n`;
             associatedDevices.forEach((dev, idx) => {
-                statusMessage += `   ${idx + 1}. ${dev.hostname} (${dev.mac})\n`;
+                statusMessage += `   ${idx + 1}. ${dev.hostname} (${dev.ip}) - ${dev.mac}\n`;
             });
         } else {
-            statusMessage += `└─ Tidak ada data user SSID 1 (2.4GHz) tersedia\n`;
+            statusMessage += `└─ Tidak ada user WiFi yang terhubung di SSID 1 (2.4GHz)\n`;
         }
         
         // Tambahkan RX Power dengan indikator kualitas
@@ -701,128 +732,96 @@ async function handleStatusCommand(senderNumber, remoteJid) {
     }
 }
 
-// Pembantu untuk pengecekan admin yang lebih fleksibel
+// Fungsi untuk mengecek apakah nomor adalah admin atau super admin
 function isAdminNumber(number) {
     try {
-        // Bersihkan nomor dari karakter non-digit
         const cleanNumber = number.replace(/\D/g, '');
-        
-        // Cek apakah nomor adalah super admin (dari enkripsi)
-        const mainAdminNumber = decryptAdminNumber(ENCRYPTED_ADMIN);
-        if (mainAdminNumber && cleanNumber === mainAdminNumber) {
-            // Masking nomor untuk keamanan di log
-            const maskedNumber = cleanNumber.substring(0, 4) + '****' + cleanNumber.substring(cleanNumber.length - 4);
-            console.log(`Super admin detected: ${maskedNumber}`);
+        if (cleanNumber === superAdminNumber) {
             return true;
         }
-        
-        // Ambil nomor admin dari environment variable
-        const adminNumber = process.env.ADMIN_NUMBER || '';
-        const cleanAdminNumber = adminNumber.replace(/\D/g, '');
-        
-        // Ambil nomor teknisi dari environment variable
-        const technicianNumbers = process.env.TECHNICIAN_NUMBERS || '';
-        const technicianNumbersArray = technicianNumbers.split(',').map(num => num.trim().replace(/\D/g, ''));
-        
-        // Log untuk debugging
-        console.log(`Checking if ${cleanNumber} is admin`);
-        console.log(`Admin number: ${cleanAdminNumber}`);
-        console.log(`Technician numbers: ${JSON.stringify(technicianNumbersArray)}`);
-        
-        // Cek apakah nomor adalah nomor admin atau teknisi
-        const isAdmin = cleanNumber === cleanAdminNumber;
-        const isTechnician = technicianNumbersArray.includes(cleanNumber);
-        
-        console.log(`Is admin: ${isAdmin}, Is technician: ${isTechnician}`);
-        
-        return isAdmin || isTechnician;
+        const adminNumber = process.env.ADMIN_NUMBER?.replace(/\D/g, '');
+        if (adminNumber && cleanNumber === adminNumber) {
+            return true;
+        }
+        const technicianNumbers = process.env.TECHNICIAN_NUMBERS?.split(',').map(n => n.trim().replace(/\D/g, '')) || [];
+        if (technicianNumbers.includes(cleanNumber)) {
+            return true;
+        }
+        return false;
     } catch (error) {
-        console.error('Error checking admin number:', error);
-        
-        // Fallback: jika terjadi error, cek langsung dengan nomor admin
-        const adminNumber = process.env.ADMIN_NUMBER || '';
-        return number.includes(adminNumber) || adminNumber.includes(number);
+        console.error('Error in isAdminNumber:', error);
+        return false;
     }
 }
 
 // Update handler help untuk pelanggan
 async function handleHelpCommand(remoteJid, isAdmin = false) {
     try {
-        console.log(`Mengirim bantuan ke ${remoteJid}, isAdmin: ${isAdmin}`);
-        
-        // Pesan bantuan umum
-        const companyHeader = global.appSettings.companyHeader || 'ALIJAYA DIGITAL NETWORK';
-        let helpMessage = `📱 *${companyHeader}*\n\n`;
-        
-        // Perintah untuk semua pengguna
-        helpMessage += `📖 *PERINTAH UMUM:*\n` +
-                      `━━━━━━━━━━━━━━━━\n\n`;
-        helpMessage += `• 📝 *menu* — Menampilkan menu ini\n\n`;
-        
-        // Hanya tampilkan perintah GenieACS jika diaktifkan
-        if (genieacsCommandsEnabled) {
-            helpMessage += `• 📶 *status* — Cek status perangkat\n\n`;
-            helpMessage += `• 🔄 *refresh* — Refresh data perangkat\n\n`;
-            helpMessage += `• 📝 *gantiwifi [nama]*\n  └─ Ganti nama WiFi\n\n`;
-            helpMessage += `• 🔒 *gantipass [password]*\n  └─ Ganti password WiFi\n\n`;
-        }
-        
-        // Perintah khusus admin
+        let helpMessage = `🤖 *MENU GENIEACS & MIKROTIK*\n
+*Perintah Umum:*
+• 📝 *menu* — Menampilkan menu ini
+• 📶 *status* — Cek status perangkat Anda
+• 🔄 *refresh* — Refresh data perangkat Anda
+• 📝 *gantiwifi [nama]* — Ganti nama WiFi
+• 🔒 *gantipass [password]* — Ganti password WiFi
+`;
+
         if (isAdmin) {
-            helpMessage += `🔑 *MENU ADMIN:*\n` +
-                          `━━━━━━━━━━━━━\n\n`;
-            
-            helpMessage += `🖥️ *MANAJEMEN PERANGKAT:*\n` +
-                          `━━━━━━━━━━━━━━━━━━━\n\n`;
-            helpMessage += `• *admin* — Menampilkan menu admin\n\n`;
-            helpMessage += `• *cek [nomor]*\n  └─ Cek status ONU pelanggan\n\n`;
-            helpMessage += `• *list*\n  └─ Daftar semua ONU\n\n`;
-            helpMessage += `• *cekall*\n  └─ Cek status semua ONU\n\n`;
+            helpMessage += `
+*Menu Admin:*
 
-            if (genieacsCommandsEnabled) {
-                helpMessage += `📶 *MANAJEMEN WIFI:*\n` +
-                              `━━━━━━━━━━━━━━━\n\n`;
-                helpMessage += `• *editssid [nomor] [ssid]*\n  └─ Edit SSID pelanggan\n\n`;
-                helpMessage += `• *editpass [nomor] [password]*\n  └─ Edit password WiFi pelanggan\n\n`;
+🖥️ *Manajemen Perangkat:*
+▸ *admin* — Menampilkan menu admin
+▸ *cek [nomor]* — Cek status ONU pelanggan
+▸ *list* — Daftar semua ONU
+▸ *cekall* — Cek status semua ONU
 
-                helpMessage += `🌐 *MANAJEMEN HOTSPOT:*\n` +
-                              `━━━━━━━━━━━━━━━━━\n\n`;
-                helpMessage += `• *addhotspot [user] [pass] [profile]*\n  └─ Tambah user hotspot\n\n`;
-                helpMessage += `• *delhotspot [user]*\n  └─ Hapus user hotspot\n\n`;
-                helpMessage += `• *hotspot*\n  └─ Lihat user hotspot aktif\n\n`;
+📶 *Manajemen WiFi:*
+▸ *editssid [nomor] [ssid]* — Edit SSID pelanggan
+▸ *editpass [nomor] [password]* — Edit password WiFi pelanggan
 
-                helpMessage += `📡 *MANAJEMEN PPPoE:*\n` +
-                              `━━━━━━━━━━━━━━━━\n\n`;
-                helpMessage += `• *addpppoe [user] [pass] [profile] [ip]*\n  └─ Tambah secret PPPoE\n\n`;
-                helpMessage += `• *delpppoe [user]*\n  └─ Hapus secret PPPoE\n\n`;
-                helpMessage += `• *setprofile [user] [profile]*\n  └─ Ubah profile PPPoE\n\n`;
-                helpMessage += `• *pppoe*\n  └─ Lihat koneksi PPPoE aktif\n\n`;
-                helpMessage += `• *offline*\n  └─ Lihat user PPPoE offline\n\n`;
+🌐 *Manajemen Hotspot:*
+▸ *addhotspot [user] [pass] [profile]* — Tambah user hotspot
+▸ *delhotspot [user]* — Hapus user hotspot
+▸ *hotspot* — Lihat user hotspot aktif
 
-                helpMessage += `🔌 *MANAJEMEN WAN:*\n` +
-                              `━━━━━━━━━━━━━━\n\n`;
-                helpMessage += `• *addwan [nomor] [tipe] [mode]*\n  └─ Tambah konfigurasi WAN\n  └─ Tipe: ppp atau ip\n  └─ Mode: bridge atau route\n\n`;
+📡 *Manajemen PPPoE:*
+▸ *addpppoe [user] [pass] [profile] [ip]* — Tambah secret PPPoE
+▸ *delpppoe [user]* — Hapus secret PPPoE
+▸ *setprofile [user] [profile]* — Ubah profile PPPoE
+▸ *pppoe* — Lihat koneksi PPPoE aktif
+▸ *offline* — Lihat user PPPoE offline
 
-                helpMessage += `📞 *MANAJEMEN PELANGGAN:*\n` +
-                              `━━━━━━━━━━━━━━━━━━\n\n`;
-                helpMessage += `• *addtag [device_id] [nomor]*\n  └─ Tambahkan nomor pelanggan ke perangkat\n\n`;
-                helpMessage += `• *addpppoe_tag [pppoe_user] [nomor]*\n  └─ Tambahkan nomor pelanggan berdasarkan PPPoE\n\n`;
+🔌 *Manajemen WAN:*
+▸ *addwan [nomor] [tipe] [mode]* — Tambah konfigurasi WAN
+  ↳ Tipe: ppp atau ip
+  ↳ Mode: bridge atau route
+  ↳ Contoh: addwan 081234567890 ppp route
 
-                helpMessage += `📊 *MONITORING:*\n` +
-                              `━━━━━━━━━━━\n\n`;
-                helpMessage += `• *resource*\n  └─ Info resource router\n\n`;
-            }
+📊 *Monitoring:*
+▸ *resource* — Info resource router
+
+⚙️ *Pengaturan Bot:*
+▸ *setheader [teks_header_baru]* — Ganti header pesan bot
+   Contoh: setheader ALIJAYA HOTSPOT
+▸ *setfooter [teks_footer_baru]* — Ganti footer pesan bot
+   Contoh: setfooter Powered by Alijaya Digital Network
+▸ *setadmin [nomor_admin_baru]* — Ganti admin utama
+   Contoh: setadmin 6281234567890
+▸ *settechnician [nomor1,nomor2,...]* — Ganti daftar teknisi
+   Contoh: settechnician 6281234567890,6289876543210
+▸ *setgenieacs [url] [username] [password]* — Ganti konfigurasi GenieACS
+   Contoh: setgenieacs http://192.168.8.89:7557 admin admin
+▸ *setmikrotik [host] [port] [user] [password]* — Ganti konfigurasi Mikrotik
+   Contoh: setmikrotik 192.168.8.1 8728 admin admin
+`;
         }
-        
-        // Tambahkan footer
-        helpMessage += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-        helpMessage += `📱 *Versi Bot:* v1.0.0\n`;
-        helpMessage += `📞 *Hubungi Admin:* ${process.env.ADMIN_NUMBER || ''}\n`;
-        
-        // Kirim pesan bantuan dengan header dan footer
+
+        helpMessage += `
+📱 *Versi Bot:* v1.0.0
+🏢 *ALIJAYA HOTSPOT*`;
+
         await sendFormattedMessage(remoteJid, helpMessage);
-        console.log(`Pesan bantuan terkirim ke ${remoteJid}`);
-        
         return true;
     } catch (error) {
         console.error('Error sending help message:', error);
@@ -833,65 +832,69 @@ async function handleHelpCommand(remoteJid, isAdmin = false) {
 // Fungsi untuk menampilkan menu admin
 async function sendAdminMenuList(remoteJid) {
     try {
-        const companyHeader = global.appSettings.companyHeader || 'ALIJAYA DIGITAL NETWORK';
-        const adminMenuMessage = `📱 *${companyHeader}*
+        let adminMenuMessage = `🤖 *MENU GENIEACS & MIKROTIK*
 
-*MENU ADMIN*
+*Perintah Umum:*
+• 📝 *menu* — Menampilkan menu ini
+• 📶 *status* — Cek status perangkat Anda
+• 🔄 *refresh* — Refresh data perangkat Anda
+• 📝 *gantiwifi [nama]* — Ganti nama WiFi
+• 🔒 *gantipass [password]* — Ganti password WiFi
 
-*Manajemen Perangkat:*
-• listonu - Daftar semua perangkat ONT
-• checkallonu - Cek status semua perangkat
-• admincheck [nomor] - Cek perangkat pelanggan
-  Contoh: admincheck 081234567890
-• cekstatus [nomor] - Alias cek status pelanggan
-  Contoh: cekstatus 081234567890 atau cekstatus081234567890
+*Menu Admin:*
 
-*Manajemen WiFi:*
-• editssid [nomor] [nama] - Ubah nama WiFi
-  Contoh: editssid 081234567890 RumahBaru
-• editpass [nomor] [password] - Ubah password WiFi
-  Contoh: editpass 081234567890 Pass123Aman
+🖥️ *Manajemen Perangkat:*
+▸ *admin* — Menampilkan menu admin
+▸ *cek [nomor]* — Cek status ONU pelanggan
+▸ *list* — Daftar semua ONU
+▸ *cekall* — Cek status semua ONU
 
-*Manajemen Hotspot:*
-• addhotspot [username] [password] [profile]
-  Contoh: addhotspot user123 pass123 default
-• delhotspot [username]
-  Contoh: delhotspot user123
-• hotspotusers - Lihat user aktif
+📶 *Manajemen WiFi:*
+▸ *editssid [nomor] [ssid]* — Edit SSID pelanggan
+▸ *editpass [nomor] [password]* — Edit password WiFi pelanggan
 
-*Manajemen PPPoE:*
-• addpppoe [username] [password] [profile] [ip]
-  Contoh: addpppoe user123 pass123 default
-• delpppoe [username]
-  Contoh: delpppoe user123
-• setprofile [username] [profile]
-  Contoh: setprofile user123 premium
-• pppoeactive - Lihat koneksi aktif
+🌐 *Manajemen Hotspot:*
+▸ *addhotspot [user] [pass] [profile]* — Tambah user hotspot
+▸ *delhotspot [user]* — Hapus user hotspot
+▸ *hotspot* — Lihat user hotspot aktif
 
-*Monitoring Sistem:*
-• resource - Info resource router
-• refresh - Refresh perangkat Anda${FOOTER_INFO}`;
+📡 *Manajemen PPPoE:*
+▸ *addpppoe [user] [pass] [profile] [ip]* — Tambah secret PPPoE
+▸ *delpppoe [user]* — Hapus secret PPPoE
+▸ *setprofile [user] [profile]* — Ubah profile PPPoE
+▸ *pppoe* — Lihat koneksi PPPoE aktif
+▸ *offline* — Lihat user PPPoE offline
 
-        await sock.sendMessage(remoteJid, { text: adminMenuMessage });
-        
-        // Kirim tombol aksi untuk admin
-        const buttons = [
-            {buttonId: 'listonu', buttonText: {displayText: '📋 Daftar ONT'}, type: 1},
-            {buttonId: 'resource', buttonText: {displayText: '💻 Resource'}, type: 1},
-            {buttonId: 'checkallonu', buttonText: {displayText: '📊 Status Semua'}, type: 1}
-        ];
-        
-        await sock.sendMessage(remoteJid, { 
-            text: `${COMPANY_HEADER}*AKSI CEPAT ADMIN*\n\nPilih salah satu aksi cepat di bawah ini:${FOOTER_INFO}`,
-            footer: '🔽 Pilih menu di bawah untuk aksi selanjutnya',
-            buttons: buttons,
-            headerType: 1
-        });
+🔌 *Manajemen WAN:*
+▸ *addwan [nomor] [tipe] [mode]* — Tambah konfigurasi WAN
+  ↳ Tipe: ppp atau ip
+  ↳ Mode: bridge atau route
+  ↳ Contoh: addwan 081234567890 ppp route
+
+📊 *Monitoring:*
+▸ *resource* — Info resource router
+
+⚙️ *Pengaturan Bot:*
+▸ *setheader [teks_header_baru]* — Ganti header pesan bot
+   Contoh: setheader ALIJAYA HOTSPOT
+▸ *setfooter [teks_footer_baru]* — Ganti footer pesan bot
+   Contoh: setfooter Powered by Alijaya Digital Network
+▸ *setadmin [nomor_admin_baru]* — Ganti admin utama
+   Contoh: setadmin 6281234567890
+▸ *settechnician [nomor1,nomor2,...]* — Ganti daftar teknisi
+   Contoh: settechnician 6281234567890,6289876543210
+▸ *setgenieacs [url] [username] [password]* — Ganti konfigurasi GenieACS
+   Contoh: setgenieacs http://192.168.8.89:7557 admin admin
+▸ *setmikrotik [host] [port] [user] [password]* — Ganti konfigurasi Mikrotik
+   Contoh: setmikrotik 192.168.8.1 8728 admin admin
+
+📱 *Versi Bot:* v1.0.0
+`;
+
+        await sendFormattedMessage(remoteJid, adminMenuMessage);
     } catch (error) {
         console.error('Error sending admin menu:', error);
-        await sock.sendMessage(remoteJid, { 
-            text: `❌ *ERROR*\n\nTerjadi kesalahan saat menampilkan menu admin:\n${error.message}`
-        });
+        await sendFormattedMessage(remoteJid, `❌ *ERROR*\n\nTerjadi kesalahan saat menampilkan menu admin:\n${error.message}`);
     }
 }
 
@@ -1154,6 +1157,7 @@ async function refreshDevice(deviceId) {
 
 // Tambahkan handler untuk menu admin
 async function handleAdminMenu(remoteJid) {
+    // handleAdminMenu hanya memanggil sendAdminMenuList, tidak perlu perubahan
     await sendAdminMenuList(remoteJid);
 }
 
@@ -1226,10 +1230,10 @@ async function handleAdminCheckONU(remoteJid, customerNumber) {
             device.VirtualParameters?.pppoeUsername?._value ||
             'N/A';
         
-        // Informasi RX Power
-        const rxPower = device.InternetGatewayDevice?.X_GponLinkInfo?.RxPower?._value;
+        // Ambil RX Power dari semua kemungkinan path
+        const rxPower = getParameterWithPaths(device, parameterPaths.rxPower);
         let rxPowerStatus = '';
-        if (rxPower) {
+        if (rxPower !== 'N/A') {
             const power = parseFloat(rxPower);
             if (power > -25) rxPowerStatus = '🟢 Baik';
             else if (power > -27) rxPowerStatus = '🟠 Warning';
@@ -1295,11 +1299,12 @@ async function handleAdminCheckONU(remoteJid, customerNumber) {
         message += `⏱️ *Last Seen:* ${lastInform.toLocaleString()}\n\n`;
         
         message += `🌐 *INFORMASI JARINGAN*\n`;
-        message += `• IP Address: ${ipAddress}\n`;
-        message += `• PPPoE Username: ${pppoeUsername}\n`;
-        message += `• WiFi 2.4GHz: ${ssid}\n`;
-        message += `• WiFi 5GHz: ${ssid5G}\n`;
-        message += `• Pengguna WiFi: ${totalUsers} perangkat\n`;
+        message += `🔹 IP Address: ${ipAddress}\n`;
+        message += `🔹 PPPoE Username: ${pppoeUsername}\n`;
+        message += `🔹 *RX Power:* ${rxPower ? rxPower + ' dBm' : 'N/A'}${rxPowerStatus ? ' (' + rxPowerStatus + ')' : ''}\n`;
+        message += `🔹 WiFi 2.4GHz: ${ssid}\n`;
+        message += `🔹 WiFi 5GHz: ${ssid5G}\n`;
+        message += `🔹 Pengguna WiFi: ${totalUsers} perangkat\n`;
         // Tambahkan detail user SSID 1 jika ada
         if (associatedDevices.length > 0) {
             message += `└─ *Daftar User WiFi (2.4GHz):*\n`;
@@ -3111,13 +3116,15 @@ async function handleDeletePPPoESecret(remoteJid, params) {
         const [username] = params;
         console.log(`Deleting PPPoE secret: ${username}`);
         
-        const result = await deletePPPoESecret(username);
-        console.log(`PPPoE secret delete result:`, result);
+        const resultBool = await deletePPPoESecret(username);
+        console.log(`PPPoE secret delete result:`, resultBool);
 
-        // Buat pesan respons
-        const responseMessage = `${result.success ? '✅' : '❌'} *${result.success ? 'BERHASIL' : 'GAGAL'} MENGHAPUS SECRET PPPoE*\n\n` +
-                               `${result.message}\n\n` +
-                               `• Username: ${username}`;
+        let responseMessage = '';
+        if (resultBool) {
+            responseMessage = `✅ *BERHASIL MENGHAPUS SECRET PPPoE*\n\nUser berhasil dihapus dari Mikrotik.\n\n• Username: ${username}`;
+        } else {
+            responseMessage = `❌ *GAGAL MENGHAPUS SECRET PPPoE*\n\nUser tidak ditemukan atau gagal menghapus dari Mikrotik.\n\n• Username: ${username}`;
+        }
 
         // Kirim pesan respons dengan timeout
         setTimeout(async () => {
@@ -3345,12 +3352,12 @@ async function handleChangePPPoEProfile(remoteJid, params) {
         const [username, newProfile] = params;
         console.log(`Changing PPPoE profile for user ${username} to ${newProfile}`);
         
-        const result = await changePPPoEProfile(username, newProfile);
+        // Ganti ke setPPPoEProfile (fungsi yang benar dari mikrotik.js)
+        const result = await setPPPoEProfile(username, newProfile);
         console.log(`PPPoE profile change result:`, result);
 
         // Buat pesan respons
-        const responseMessage = `${result.success ? '✅' : '❌'} *${result.success ? 'BERHASIL' : 'GAGAL'} MENGUBAH PROFILE PPPoE*\n\n` +
-                               `${result.message}\n\n` +
+        const responseMessage = `${result ? '✅ BERHASIL' : '❌ GAGAL'} MENGUBAH PROFILE PPPoE\n\n` +
                                `• Username: ${username}\n` +
                                `• Profile Baru: ${newProfile}`;
 
@@ -3884,23 +3891,140 @@ async function handleIncomingMessage(sock, message) {
             return;
         }
         
-        // Proses perintah
-        const command = messageText.trim().toLowerCase();
+// Proses perintah
+const command = messageText.trim().toLowerCase();
+
+        // Handler setheader
+if (command.startsWith('setheader ')) {
+            if (!isAdmin) {
+                await sendFormattedMessage(remoteJid, '❌ *Hanya admin yang dapat mengubah header!*');
+return;
+}
+            const newHeader = messageText.split(' ').slice(1).join(' ');
+            if (!newHeader) {
+                await sendFormattedMessage(remoteJid, '❌ *Format salah!*\n\nsetheader [teks_header_baru]');
+                return;
+            }
+            const settingsPath = path.join(__dirname, '../settings.json');
+            let settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+            settings.company_header = newHeader;
+            fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+            updateConfig({ companyHeader: newHeader });
+            await sendFormattedMessage(remoteJid, `✅ *Header berhasil diubah ke:*\n${newHeader}`);
+            return;
+        }
+
+        // Handler setfooter
+if (command.startsWith('setfooter ')) {
+            if (!isAdmin) {
+                await sendFormattedMessage(remoteJid, '❌ *Hanya admin yang dapat mengubah footer!*');
+return;
+}
+            const newFooter = messageText.split(' ').slice(1).join(' ');
+            if (!newFooter) {
+                await sendFormattedMessage(remoteJid, '❌ *Format salah!*\n\nsetfooter [teks_footer_baru]');
+return;
+}
+            const settingsPath = path.join(__dirname, '../settings.json');
+            let settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+            settings.footer_info = newFooter;
+            fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+            updateConfig({ footerInfo: newFooter });
+            await sendFormattedMessage(remoteJid, `✅ *Footer berhasil diubah ke:*\n${newFooter}`);
+return;
+}
+
+        // Handler setadmin
+        if (command.startsWith('setadmin ')) {
+            if (!isAdmin) {
+                await sendFormattedMessage(remoteJid, '❌ *Hanya admin yang dapat mengubah admin number!*');
+                return;
+            }
+            const newAdmin = messageText.split(' ').slice(1).join(' ').replace(/\D/g, '');
+            if (!newAdmin) {
+                await sendFormattedMessage(remoteJid, '❌ *Format salah!*\n\nsetadmin [nomor_admin_baru]');
+                return;
+            }
+            let settings = getAppSettings();
+            settings.admin_number = newAdmin;
+            fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+            await sendFormattedMessage(remoteJid, `✅ *Admin number berhasil diubah ke:*\n${newAdmin}`);
+            return;
+        }
+
+        // Handler settechnician
+        if (command.startsWith('settechnician ')) {
+            if (!isAdmin) {
+                await sendFormattedMessage(remoteJid, '❌ *Hanya admin yang dapat mengubah technician!*');
+                return;
+            }
+            const newTechs = messageText.split(' ').slice(1).join(' ').split(',').map(n => n.trim().replace(/\D/g, '')).filter(Boolean);
+            if (!newTechs.length) {
+                await sendFormattedMessage(remoteJid, '❌ *Format salah!*\n\nsettechnician [nomor1,nomor2,...]');
+                return;
+            }
+            let settings = getAppSettings();
+            settings.technician_numbers = newTechs;
+            fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+            await sendFormattedMessage(remoteJid, `✅ *Technician numbers berhasil diubah ke:*\n${newTechs.join(', ')}`);
+            return;
+        }
+
+        // Handler setgenieacs
+        if (command.startsWith('setgenieacs ')) {
+            if (!isAdmin) {
+                await sendFormattedMessage(remoteJid, '❌ *Hanya admin yang dapat mengubah GenieACS config!*');
+                return;
+            }
+const params = messageText.split(' ').slice(1);
+            if (params.length < 3) {
+                await sendFormattedMessage(remoteJid, '❌ *Format salah!*\n\nsetgenieacs [url] [username] [password]');
+return;
+}
+            let settings = getAppSettings();
+            settings.genieacs_url = params[0];
+            settings.genieacs_username = params[1];
+            settings.genieacs_password = params.slice(2).join(' ');
+            fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+            await sendFormattedMessage(remoteJid, `✅ *Konfigurasi GenieACS berhasil diubah!*`);
+return;
+}
+
+        // Handler setmikrotik
+        if (command.startsWith('setmikrotik ')) {
+            if (!isAdmin) {
+                await sendFormattedMessage(remoteJid, '❌ *Hanya admin yang dapat mengubah Mikrotik config!*');
+                return;
+            }
+            const params = messageText.split(' ').slice(1);
+            if (params.length < 4) {
+                await sendFormattedMessage(remoteJid, '❌ *Format salah!*\n\nsetmikrotik [host] [port] [user] [password]');
+                return;
+            }
+            let settings = getAppSettings();
+            settings.mikrotik_host = params[0];
+            settings.mikrotik_port = params[1];
+            settings.mikrotik_user = params[2];
+            settings.mikrotik_password = params.slice(3).join(' ');
+            fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+            await sendFormattedMessage(remoteJid, `✅ *Konfigurasi Mikrotik berhasil diubah!*`);
+            return;
+}
         
-        // Perintah untuk mengaktifkan/menonaktifkan GenieACS (hanya untuk admin)
-        // Perintah ini selalu diproses terlepas dari status genieacsCommandsEnabled
+// Perintah untuk mengaktifkan/menonaktifkan GenieACS (hanya untuk admin)
+// Perintah ini selalu diproses terlepas dari status genieacsCommandsEnabled
         
         // Perintah untuk menonaktifkan pesan GenieACS (hanya untuk admin)
         if (command.toLowerCase() === 'genieacs stop' && isAdmin) {
-            console.log(`Admin ${senderNumber} menonaktifkan pesan GenieACS`);
-            genieacsCommandsEnabled = false;
+    console.log(`Admin ${senderNumber} menonaktifkan pesan GenieACS`);
+    genieacsCommandsEnabled = false;
             await sendFormattedMessage(remoteJid, `✅ *PESAN GenieACS DINONAKTIFKAN*
 
 
 Pesan GenieACS telah dinonaktifkan. Hubungi admin untuk mengaktifkan kembali.`);
-            return;
-        }
-        
+    return;
+}
+
         // Perintah untuk mengaktifkan kembali pesan GenieACS (hanya untuk admin)
         if (command.toLowerCase() === 'genieacs start060111' && isAdmin) {
             console.log(`Admin ${senderNumber} mengaktifkan pesan GenieACS`);
@@ -4196,7 +4320,7 @@ Pesan GenieACS telah diaktifkan kembali.`);
                 const params = messageText.split(' ').slice(1);
                 if (params.length >= 2) {
                     console.log(`Menjalankan perintah tambah tag untuk PPPoE Username ${params[0]}`);
-                    await addTagByPPPoE(remoteJid, params);
+                    await addTagByPPPoE(remoteJid, params, sock); // <-- TAMBAHKAN sock di sini!
                     return;
                 } else {
                     await sock.sendMessage(remoteJid, { 
@@ -4411,5 +4535,15 @@ function getSSIDValue(device, configIndex) {
     } catch (error) {
         console.error(`Error getting SSID for config ${configIndex}:`, error);
         return 'N/A';
+    }
+}
+
+const settingsPath = path.join(__dirname, '../settings.json');
+
+function getAppSettings() {
+    try {
+        return JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    } catch (e) {
+        return {};
     }
 }
