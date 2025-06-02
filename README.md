@@ -1,10 +1,10 @@
-# Botlokal WhatsApp-Only
+# WhatsApp-Only
 
 Versi ringan dari Botlokal yang hanya menggunakan fitur WhatsApp tanpa web interface.
 
 ## Persyaratan
 
-- Node.js v14+ (direkomendasikan v16+)
+- Node.js v14+ (direkomendasikan v20+)
 - npm atau yarn
 - Akses ke GenieACS API
 - Akses ke Mikrotik API (opsional)
@@ -69,9 +69,10 @@ WHATSAPP_RESTART_ON_ERROR=true
 node app-whatsapp-only.js
 ```
 
-Scan QR code yang muncul di terminal untuk login WhatsApp.
+Scan QR code yang muncul di terminal untuk login WhatsApp. menggunakan wa yang akan jadi BOT
 
 ## Perintah WhatsApp
+menggunakan nomer yang di daftarkan sebagai admin di ENV
 
 ### Perintah untuk Pelanggan
 - `menu` - Menampilkan menu bantuan
