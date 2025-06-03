@@ -1,7 +1,7 @@
 {
-  "name": "botlokal-whatsapp-only",
+  "name": "alijayabot-whatsapp-only",
   "version": "1.0.0",
-  "description": "WhatsApp Bot untuk GenieACS dan Mikrotik (WhatsApp-Only Version)",
+  "description": "WhatsApp Bot untuk GenieACS dan Mikrotik",
   "main": "app-whatsapp-only.js",
   "scripts": {
     "start": "node app-whatsapp-only.js",
