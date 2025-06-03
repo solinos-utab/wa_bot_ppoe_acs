@@ -3602,11 +3602,30 @@ async function handleActiveHotspotUsers(remoteJid) {
                 message += 'Tidak ada user hotspot yang aktif';
             } else {
                 result.data.forEach((user, index) => {
-                    message += `${index + 1}. *User: ${user.user}*\n` +
-                              `   • IP: ${user.address}\n` +
-                              `   • Uptime: ${user.uptime}\n` +
-                              `   • Download: ${(user.bytesIn/1024/1024).toFixed(2)} MB\n` +
-                              `   • Upload: ${(user.bytesOut/1024/1024).toFixed(2)} MB\n\n`;
+                    // Helper function untuk parsing bytes
+                    const parseBytes = (value) => {
+                        if (value === null || value === undefined || value === '') return 0;
+
+                        // Jika sudah berupa number
+                        if (typeof value === 'number') return value;
+
+                        // Jika berupa string, parse sebagai integer
+                        if (typeof value === 'string') {
+                            const parsed = parseInt(value.replace(/[^0-9]/g, ''));
+                            return isNaN(parsed) ? 0 : parsed;
+                        }
+
+                        return 0;
+                    };
+
+                    const bytesIn = parseBytes(user['bytes-in']);
+                    const bytesOut = parseBytes(user['bytes-out']);
+
+                    message += `${index + 1}. *User: ${user.user || 'N/A'}*\n` +
+                              `   • IP: ${user.address || 'N/A'}\n` +
+                              `   • Uptime: ${user.uptime || 'N/A'}\n` +
+                              `   • Download: ${(bytesIn/1024/1024).toFixed(2)} MB\n` +
+                              `   • Upload: ${(bytesOut/1024/1024).toFixed(2)} MB\n\n`;
                 });
             }
             
