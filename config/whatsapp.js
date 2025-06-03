@@ -2934,20 +2934,68 @@ async function handleListONU(remoteJid) {
         message += `Total: ${devices.length} perangkat\n\n`;
 
         displayedDevices.forEach((device, index) => {
-            const serialNumber = device.InternetGatewayDevice?.DeviceInfo?.SerialNumber?._value || 
-                                device.Device?.DeviceInfo?.SerialNumber?._value || 'Unknown';
-            
-            const modelName = device.InternetGatewayDevice?.DeviceInfo?.ModelName?._value || 'Unknown';
-            
+            // Helper function untuk mengambil parameter dengan multiple paths
+            const getParameterWithPaths = (device, paths) => {
+                if (!device || !paths || !Array.isArray(paths)) return 'Unknown';
+
+                for (const path of paths) {
+                    try {
+                        const pathParts = path.split('.');
+                        let current = device;
+
+                        for (const part of pathParts) {
+                            if (current && typeof current === 'object') {
+                                current = current[part];
+                            } else {
+                                break;
+                            }
+                        }
+
+                        // Handle GenieACS parameter format
+                        if (current && typeof current === 'object' && current._value !== undefined) {
+                            const value = current._value;
+                            // Make sure it's a string and not an object
+                            if (typeof value === 'string' && value.trim() !== '') {
+                                return value;
+                            }
+                        }
+
+                        // Handle direct value - make sure it's a string
+                        if (current !== null && current !== undefined && typeof current === 'string' && current.trim() !== '') {
+                            return current;
+                        }
+                    } catch (error) {
+                        // Continue to next path
+                    }
+                }
+                return 'Unknown';
+            };
+
+            // Parameter paths untuk Serial Number
+            const serialPaths = [
+                'VirtualParameters.getSerialNumber',
+                'InternetGatewayDevice.DeviceInfo.SerialNumber',
+                'Device.DeviceInfo.SerialNumber'
+            ];
+
+            // Parameter paths untuk Model Name
+            const modelPaths = [
+                'InternetGatewayDevice.DeviceInfo.ModelName',
+                'Device.DeviceInfo.ModelName'
+            ];
+
+            const serialNumber = getParameterWithPaths(device, serialPaths);
+            const modelName = getParameterWithPaths(device, modelPaths);
+
             const lastInform = new Date(device._lastInform);
             const now = new Date();
             const diffMinutes = Math.floor((now - lastInform) / (1000 * 60));
             const isOnline = diffMinutes < 15;
             const statusText = isOnline ? '🟢 Online' : '🔴 Offline';
-            
+
             const tags = device._tags || [];
             const customerInfo = tags.length > 0 ? tags[0] : 'No Tag';
-            
+
             message += `${index + 1}. *${customerInfo}*\n`;
             message += `   • SN: ${serialNumber}\n`;
             message += `   • Model: ${modelName}\n`;
