@@ -131,6 +131,56 @@ function removeTechnicianNumber(number) {
     return saveSettings(settings);
 }
 
+// Helper function untuk cek koneksi WhatsApp
+async function checkWhatsAppConnection() {
+    if (!sock) {
+        logger.error('WhatsApp sock instance not set');
+        return false;
+    }
+
+    try {
+        // Cek apakah socket masih terhubung
+        if (sock.ws && sock.ws.readyState === sock.ws.OPEN) {
+            return true;
+        } else {
+            logger.warn('WhatsApp connection is not open');
+            return false;
+        }
+    } catch (error) {
+        logger.error(`Error checking WhatsApp connection: ${error.message}`);
+        return false;
+    }
+}
+
+// Helper function untuk format nomor WhatsApp
+function formatWhatsAppNumber(number) {
+    // Remove all non-numeric characters
+    let cleanNumber = number.replace(/[^0-9]/g, '');
+
+    // Add country code if not present
+    if (cleanNumber.startsWith('0')) {
+        cleanNumber = '62' + cleanNumber.substring(1); // Indonesia country code
+    } else if (!cleanNumber.startsWith('62')) {
+        cleanNumber = '62' + cleanNumber;
+    }
+
+    return cleanNumber + '@s.whatsapp.net';
+}
+
+// Helper function untuk validasi nomor WhatsApp
+async function validateWhatsAppNumber(number) {
+    try {
+        const jid = formatWhatsAppNumber(number);
+
+        // Check if number exists on WhatsApp
+        const [result] = await sock.onWhatsApp(jid.replace('@s.whatsapp.net', ''));
+        return result && result.exists;
+    } catch (error) {
+        logger.warn(`Error validating WhatsApp number ${number}: ${error.message}`);
+        return false; // Assume valid if validation fails
+    }
+}
+
 // Send notification to admin and technician numbers
 async function sendNotification(message) {
     if (!sock) {
@@ -144,22 +194,75 @@ async function sendNotification(message) {
         return false;
     }
 
+    // Check connection before sending
+    const isConnected = await checkWhatsAppConnection();
+    if (!isConnected) {
+        logger.error('WhatsApp connection not available for PPPoE notifications');
+        return false;
+    }
+
     const recipients = [...settings.adminNumbers, ...settings.technicianNumbers];
     const uniqueRecipients = [...new Set(recipients)]; // Remove duplicates
 
+    if (uniqueRecipients.length === 0) {
+        logger.warn('No recipients configured for PPPoE notifications');
+        return false;
+    }
+
     let successCount = 0;
+    let validRecipients = 0;
+
     for (const number of uniqueRecipients) {
         try {
-            const jid = number.includes('@') ? number : `${number}@s.whatsapp.net`;
-            await sock.sendMessage(jid, { text: message });
-            successCount++;
-            logger.info(`PPPoE notification sent to ${number}`);
+            // Validate number first
+            const isValid = await validateWhatsAppNumber(number);
+            if (!isValid) {
+                logger.warn(`Skipping invalid WhatsApp number: ${number}`);
+                continue;
+            }
+
+            validRecipients++;
+            const jid = formatWhatsAppNumber(number);
+
+            // Retry mechanism for each recipient with longer timeout
+            let sent = false;
+            for (let retry = 0; retry < 2; retry++) { // Reduced to 2 retries
+                try {
+                    // Add timeout to prevent hanging
+                    const sendPromise = sock.sendMessage(jid, { text: message });
+                    const timeoutPromise = new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Send timeout')), 10000) // 10 second timeout
+                    );
+
+                    await Promise.race([sendPromise, timeoutPromise]);
+                    sent = true;
+                    break;
+                } catch (retryError) {
+                    logger.warn(`Retry ${retry + 1}/2 failed for ${number}: ${retryError.message}`);
+                    if (retry < 1) {
+                        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+                    }
+                }
+            }
+
+            if (sent) {
+                successCount++;
+                logger.info(`PPPoE notification sent to ${number}`);
+            } else {
+                logger.error(`Failed to send PPPoE notification to ${number} after 2 retries`);
+            }
+
+            // Add delay between recipients to avoid rate limiting
+            if (uniqueRecipients.indexOf(number) < uniqueRecipients.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+            }
+
         } catch (error) {
             logger.error(`Failed to send PPPoE notification to ${number}: ${error.message}`);
         }
     }
 
-    logger.info(`PPPoE notification sent to ${successCount}/${uniqueRecipients.length} recipients`);
+    logger.info(`PPPoE notification sent to ${successCount}/${validRecipients} valid recipients (${uniqueRecipients.length} total)`);
     return successCount > 0;
 }
 

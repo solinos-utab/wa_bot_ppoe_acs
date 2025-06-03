@@ -844,6 +844,8 @@ async function handleHelpCommand(remoteJid, isAdmin = false) {
 ▸ *pppoe status* — Status notifikasi PPPoE
 ▸ *pppoe addadmin [nomor]* — Tambah nomor admin
 ▸ *pppoe addtech [nomor]* — Tambah nomor teknisi
+▸ *pppoe removeadmin [nomor]* — Hapus nomor admin
+▸ *pppoe removetech [nomor]* — Hapus nomor teknisi
 ▸ *pppoe interval [detik]* — Ubah interval monitoring
 ▸ *pppoe test* — Test notifikasi
 
@@ -957,6 +959,8 @@ async function sendAdminMenuList(remoteJid) {
 ▸ *pppoe status* — Status notifikasi PPPoE
 ▸ *pppoe addadmin [nomor]* — Tambah nomor admin
 ▸ *pppoe addtech [nomor]* — Tambah nomor teknisi
+▸ *pppoe removeadmin [nomor]* — Hapus nomor admin
+▸ *pppoe removetech [nomor]* — Hapus nomor teknisi
 ▸ *pppoe interval [detik]* — Ubah interval monitoring
 ▸ *pppoe test* — Test notifikasi
 
@@ -4539,6 +4543,32 @@ Pesan GenieACS telah diaktifkan kembali.`);
                             await pppoeCommands.handleTestNotification(remoteJid);
                             return;
 
+                        case 'removeadmin':
+                        case 'deladmin':
+                            if (params.length >= 2) {
+                                console.log(`Admin menghapus nomor admin PPPoE: ${params[1]}`);
+                                await pppoeCommands.handleRemoveAdminNumber(remoteJid, params[1]);
+                            } else {
+                                await sock.sendMessage(remoteJid, {
+                                    text: `❌ *FORMAT SALAH*\n\nFormat: pppoe removeadmin [nomor]\nContoh: pppoe removeadmin 081234567890`
+                                });
+                            }
+                            return;
+
+                        case 'removetech':
+                        case 'deltech':
+                        case 'removeteknisi':
+                        case 'delteknisi':
+                            if (params.length >= 2) {
+                                console.log(`Admin menghapus nomor teknisi PPPoE: ${params[1]}`);
+                                await pppoeCommands.handleRemoveTechnicianNumber(remoteJid, params[1]);
+                            } else {
+                                await sock.sendMessage(remoteJid, {
+                                    text: `❌ *FORMAT SALAH*\n\nFormat: pppoe removetech [nomor]\nContoh: pppoe removetech 081234567890`
+                                });
+                            }
+                            return;
+
                         default:
                             await sock.sendMessage(remoteJid, {
                                 text: `❌ *PERINTAH TIDAK DIKENAL*\n\n` +
@@ -4548,6 +4578,8 @@ Pesan GenieACS telah diaktifkan kembali.`);
                                       `• pppoe status - Lihat status\n` +
                                       `• pppoe addadmin [nomor] - Tambah admin\n` +
                                       `• pppoe addtech [nomor] - Tambah teknisi\n` +
+                                      `• pppoe removeadmin [nomor] - Hapus admin\n` +
+                                      `• pppoe removetech [nomor] - Hapus teknisi\n` +
                                       `• pppoe interval [detik] - Ubah interval\n` +
                                       `• pppoe test - Test notifikasi`
                             });
