@@ -1,6 +1,6 @@
 // genieacs-commands.js - Module for handling GenieACS commands via WhatsApp
 const { logger } = require('./logger');
-const genieacsApi = require('./genieacs').genieacsApi;
+const genieacsApi = require('./genieacs');
 const responses = require('./responses');
 
 // Store the WhatsApp socket instance
@@ -11,6 +11,155 @@ function setSock(sockInstance) {
     sock = sockInstance;
     logger.info('WhatsApp socket set in genieacs-commands module');
 }
+
+// Helper functions for device status and parameters
+function getDeviceStatus(lastInform) {
+    if (!lastInform) return false;
+    const now = Date.now();
+    const lastInformTime = new Date(lastInform).getTime();
+    const timeDiff = now - lastInformTime;
+    // Consider device online if last inform was within 5 minutes
+    return timeDiff < 5 * 60 * 1000;
+}
+
+function formatUptime(uptimeValue) {
+    if (!uptimeValue || uptimeValue === 'N/A') return 'N/A';
+
+    // If already formatted (like "5d 04:50:18"), return as is
+    if (typeof uptimeValue === 'string' && uptimeValue.includes('d ')) {
+        return uptimeValue;
+    }
+
+    // If it's seconds, convert to formatted string
+    if (!isNaN(uptimeValue)) {
+        const seconds = parseInt(uptimeValue);
+        const days = Math.floor(seconds / (24 * 3600));
+        const hours = Math.floor((seconds % (24 * 3600)) / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+
+        let result = '';
+        if (days > 0) result += `${days}d `;
+        if (hours > 0) result += `${hours}h `;
+        if (minutes > 0) result += `${minutes}m `;
+        if (secs > 0) result += `${secs}s`;
+
+        return result.trim() || '0s';
+    }
+
+    return uptimeValue;
+}
+
+function getParameterWithPaths(device, paths) {
+    if (!device || !paths || !Array.isArray(paths)) return 'N/A';
+
+    for (const path of paths) {
+        try {
+            const value = getParameterValue(device, path);
+            if (value && value !== 'N/A') {
+                return value;
+            }
+        } catch (error) {
+            // Continue to next path
+        }
+    }
+    return 'N/A';
+}
+
+function getParameterValue(device, path) {
+    if (!device || !path) return 'N/A';
+
+    try {
+        const pathParts = path.split('.');
+        let current = device;
+
+        for (const part of pathParts) {
+            if (current && typeof current === 'object') {
+                current = current[part];
+            } else {
+                return 'N/A';
+            }
+        }
+
+        // Handle GenieACS parameter format
+        if (current && typeof current === 'object' && current._value !== undefined) {
+            return current._value;
+        }
+
+        // Handle direct value
+        if (current !== null && current !== undefined && current !== '') {
+            return current;
+        }
+
+        return 'N/A';
+    } catch (error) {
+        logger.debug(`Error getting parameter ${path}: ${error.message}`);
+        return 'N/A';
+    }
+}
+
+// Parameter paths for different device parameters (updated with confirmed VirtualParameters)
+const parameterPaths = {
+    rxPower: [
+        'VirtualParameters.RXPower',                    // ✅ CONFIRMED: -19.74
+        'InternetGatewayDevice.WANDevice.1.WANPONInterfaceConfig.RXPower',
+        'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.X_ALU-COM_RxPower',
+        'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.RxPower',
+        'Device.Optical.Interface.1.RxPower'
+    ],
+    pppoeIP: [
+        'VirtualParameters.pppoeIP',                    // ✅ CONFIRMED: 192.168.10.159
+        'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ExternalIPAddress',
+        'Device.PPP.Interface.1.IPCPExtensions.RemoteIPAddress'
+    ],
+    pppUsername: [
+        'VirtualParameters.pppoeUsername',              // ✅ CONFIRMED: leha
+        'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username',
+        'Device.PPP.Interface.1.Username'
+    ],
+    uptime: [
+        'VirtualParameters.getdeviceuptime',            // ✅ CONFIRMED: 5d 04:50:18
+        'InternetGatewayDevice.DeviceInfo.UpTime',
+        'Device.DeviceInfo.UpTime'
+    ],
+    firmware: [
+        'InternetGatewayDevice.DeviceInfo.SoftwareVersion',
+        'Device.DeviceInfo.SoftwareVersion'
+    ],
+    userConnected: [
+        'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.TotalAssociations',  // ✅ SSID 1 (2.4GHz) only
+        'VirtualParameters.activedevices',              // ✅ Fallback if needed
+        'Device.WiFi.AccessPoint.1.AssociatedDeviceNumberOfEntries'
+    ],
+    temperature: [
+        'VirtualParameters.gettemp',                    // ✅ CONFIRMED: 48
+        'InternetGatewayDevice.DeviceInfo.TemperatureStatus.TemperatureValue',
+        'Device.DeviceInfo.TemperatureStatus.TemperatureValue'
+    ],
+    // Additional VirtualParameters yang tersedia
+    serialNumber: [
+        'VirtualParameters.getSerialNumber',            // ✅ AVAILABLE: CIOT12E8C8B8
+        'InternetGatewayDevice.DeviceInfo.SerialNumber'
+    ],
+    ponMode: [
+        'VirtualParameters.getponmode'                  // ✅ AVAILABLE: EPON
+    ],
+    pppUptime: [
+        'VirtualParameters.getpppuptime'                // ✅ AVAILABLE: 0d 08:46:43
+    ],
+    ponMac: [
+        'VirtualParameters.PonMac',                     // ✅ AVAILABLE (but might be empty)
+        'VirtualParameters.ponMac',                     // Alternative lowercase
+        'VirtualParameters.MacAddress',                 // Alternative name
+        'VirtualParameters.deviceMac',                  // Alternative name
+        'VirtualParameters.ontMac',                     // Alternative name
+        'InternetGatewayDevice.DeviceInfo.X_ALU-COM_MACAddress',
+        'InternetGatewayDevice.LANDevice.1.LANEthernetInterfaceConfig.1.MACAddress'
+    ],
+    wlanPassword: [
+        'VirtualParameters.WlanPassword'                // ✅ AVAILABLE
+    ]
+};
 
 // Menggunakan format pesan dari responses.js
 function formatResponse(message) {
@@ -181,8 +330,6 @@ async function handleDeviceStatus(remoteJid, senderNumber) {
         }
         
         // Get device status information
-        const { getDeviceStatus, formatUptime, getParameterWithPaths, parameterPaths } = require('./whatsapp');
-        
         const lastInform = device._lastInform;
         const isOnline = getDeviceStatus(lastInform);
         const serialNumber = device.InternetGatewayDevice?.DeviceInfo?.SerialNumber?._value || 'N/A';
@@ -341,7 +488,6 @@ function getSSIDValue(device, configIndex) {
         }
         
         // Try method 2: Using getParameterWithPaths
-        const { getParameterWithPaths } = require('./whatsapp');
         const ssidPath = `InternetGatewayDevice.LANDevice.1.WLANConfiguration.${configIndex}.SSID`;
         const ssidValue = getParameterWithPaths(device, [ssidPath]);
         if (ssidValue && ssidValue !== 'N/A') {
@@ -483,8 +629,6 @@ async function handleConnectedDevices(remoteJid, senderNumber) {
         }
 
         // Get connected devices information
-        const { getParameterWithPaths, parameterPaths } = require('./whatsapp');
-
         // Get number of connected users
         const connectedUsers = getParameterWithPaths(device, parameterPaths.userConnected) || '0';
 
@@ -557,13 +701,13 @@ async function handleAdminDeviceDetail(remoteJid, phoneNumber) {
         }
 
         // Get device information
-        const { getDeviceStatus, formatUptime, getParameterWithPaths, parameterPaths } = require('./whatsapp');
-
         const lastInform = device._lastInform;
         const isOnline = getDeviceStatus(lastInform);
         const serialNumber = device.InternetGatewayDevice?.DeviceInfo?.SerialNumber?._value || 'N/A';
         const firmware = getParameterWithPaths(device, parameterPaths.firmware) || 'N/A';
+
         const uptime = formatUptime(getParameterWithPaths(device, parameterPaths.uptime)) || 'N/A';
+
         const rxPower = getParameterWithPaths(device, parameterPaths.rxPower) || 'N/A';
         const pppoeIP = getParameterWithPaths(device, parameterPaths.pppoeIP) || 'N/A';
         const pppUsername = getParameterWithPaths(device, parameterPaths.pppUsername) || 'N/A';
@@ -571,6 +715,10 @@ async function handleAdminDeviceDetail(remoteJid, phoneNumber) {
         const ssid5G = getSSIDValue(device, '5') || 'N/A';
         const connectedUsers = getParameterWithPaths(device, parameterPaths.userConnected) || '0';
         const temperature = getParameterWithPaths(device, parameterPaths.temperature) || 'N/A';
+
+        // Additional VirtualParameters
+        const ponMode = getParameterWithPaths(device, parameterPaths.ponMode) || 'N/A';
+        const pppUptime = getParameterWithPaths(device, parameterPaths.pppUptime) || 'N/A';
 
         // Get device model and manufacturer
         const manufacturer = device.InternetGatewayDevice?.DeviceInfo?.Manufacturer?._value || 'N/A';
@@ -589,9 +737,13 @@ async function handleAdminDeviceDetail(remoteJid, phoneNumber) {
         message += `🌐 *Status Koneksi:*\n`;
         message += `• Status: ${isOnline ? '🟢 Online' : '🔴 Offline'}\n`;
         message += `• Last Inform: ${new Date(lastInform).toLocaleString()}\n`;
-        message += `• Uptime: ${uptime}\n`;
+        message += `• Device Uptime: ${uptime}\n`;
+        message += `• PPP Uptime: ${pppUptime}\n`;
         message += `• PPPoE IP: ${pppoeIP}\n`;
-        message += `• PPP Username: ${pppUsername}\n`;
+        message += `• PPP Username: ${pppUsername}\n\n`;
+
+        message += `📡 *Network Information:*\n`;
+        message += `• PON Mode: ${ponMode}\n`;
         message += `• RX Power: ${rxPower} dBm\n`;
         message += `• Temperature: ${temperature}°C\n\n`;
 

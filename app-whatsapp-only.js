@@ -97,6 +97,12 @@ app.get('/whatsapp/status', (req, res) => {
 const pppoeMonitor = require('./config/pppoe-monitor');
 const pppoeCommands = require('./config/pppoe-commands');
 
+// Import GenieACS commands module
+const genieacsCommands = require('./config/genieacs-commands');
+
+// Import MikroTik commands module
+const mikrotikCommands = require('./config/mikrotik-commands');
+
 // Inisialisasi WhatsApp dan PPPoE monitoring
 try {
     whatsapp.connectToWhatsApp().then(sock => {
@@ -107,6 +113,12 @@ try {
             // Set sock instance untuk PPPoE monitoring
             pppoeMonitor.setSock(sock);
             pppoeCommands.setSock(sock);
+
+            // Set sock instance untuk GenieACS commands
+            genieacsCommands.setSock(sock);
+
+            // Set sock instance untuk MikroTik commands
+            mikrotikCommands.setSock(sock);
 
             logger.info('WhatsApp connected successfully');
 
