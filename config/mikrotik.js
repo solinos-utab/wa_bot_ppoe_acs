@@ -514,6 +514,511 @@ async function getInterfaceTraffic(interfaceName = 'ether1') {
     }
 }
 
+// Fungsi untuk mendapatkan daftar interface
+async function getInterfaces() {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal', data: [] };
+        }
+
+        const interfaces = await conn.write('/interface/print');
+        return {
+            success: true,
+            message: `Ditemukan ${interfaces.length} interface`,
+            data: interfaces
+        };
+    } catch (error) {
+        logger.error(`Error getting interfaces: ${error.message}`);
+        return { success: false, message: `Gagal ambil data interface: ${error.message}`, data: [] };
+    }
+}
+
+// Fungsi untuk mendapatkan detail interface tertentu
+async function getInterfaceDetail(interfaceName) {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal', data: null };
+        }
+
+        const interfaces = await conn.write('/interface/print', [
+            `?name=${interfaceName}`
+        ]);
+
+        if (interfaces.length === 0) {
+            return { success: false, message: 'Interface tidak ditemukan', data: null };
+        }
+
+        return {
+            success: true,
+            message: `Detail interface ${interfaceName}`,
+            data: interfaces[0]
+        };
+    } catch (error) {
+        logger.error(`Error getting interface detail: ${error.message}`);
+        return { success: false, message: `Gagal ambil detail interface: ${error.message}`, data: null };
+    }
+}
+
+// Fungsi untuk enable/disable interface
+async function setInterfaceStatus(interfaceName, enabled) {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal' };
+        }
+
+        // Cari interface
+        const interfaces = await conn.write('/interface/print', [
+            `?name=${interfaceName}`
+        ]);
+
+        if (interfaces.length === 0) {
+            return { success: false, message: 'Interface tidak ditemukan' };
+        }
+
+        // Set status interface
+        const action = enabled ? 'enable' : 'disable';
+        await conn.write(`/interface/${action}`, [
+            `=.id=${interfaces[0]['.id']}`
+        ]);
+
+        return {
+            success: true,
+            message: `Interface ${interfaceName} berhasil ${enabled ? 'diaktifkan' : 'dinonaktifkan'}`
+        };
+    } catch (error) {
+        logger.error(`Error setting interface status: ${error.message}`);
+        return { success: false, message: `Gagal mengubah status interface: ${error.message}` };
+    }
+}
+
+// Fungsi untuk mendapatkan daftar IP address
+async function getIPAddresses() {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal', data: [] };
+        }
+
+        const addresses = await conn.write('/ip/address/print');
+        return {
+            success: true,
+            message: `Ditemukan ${addresses.length} IP address`,
+            data: addresses
+        };
+    } catch (error) {
+        logger.error(`Error getting IP addresses: ${error.message}`);
+        return { success: false, message: `Gagal ambil data IP address: ${error.message}`, data: [] };
+    }
+}
+
+// Fungsi untuk menambah IP address
+async function addIPAddress(interfaceName, address) {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal' };
+        }
+
+        await conn.write('/ip/address/add', [
+            `=interface=${interfaceName}`,
+            `=address=${address}`
+        ]);
+
+        return { success: true, message: `IP address ${address} berhasil ditambahkan ke ${interfaceName}` };
+    } catch (error) {
+        logger.error(`Error adding IP address: ${error.message}`);
+        return { success: false, message: `Gagal menambah IP address: ${error.message}` };
+    }
+}
+
+// Fungsi untuk menghapus IP address
+async function deleteIPAddress(interfaceName, address) {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal' };
+        }
+
+        // Cari IP address
+        const addresses = await conn.write('/ip/address/print', [
+            `?interface=${interfaceName}`,
+            `?address=${address}`
+        ]);
+
+        if (addresses.length === 0) {
+            return { success: false, message: 'IP address tidak ditemukan' };
+        }
+
+        // Hapus IP address
+        await conn.write('/ip/address/remove', [
+            `=.id=${addresses[0]['.id']}`
+        ]);
+
+        return { success: true, message: `IP address ${address} berhasil dihapus dari ${interfaceName}` };
+    } catch (error) {
+        logger.error(`Error deleting IP address: ${error.message}`);
+        return { success: false, message: `Gagal menghapus IP address: ${error.message}` };
+    }
+}
+
+// Fungsi untuk mendapatkan routing table
+async function getRoutes() {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal', data: [] };
+        }
+
+        const routes = await conn.write('/ip/route/print');
+        return {
+            success: true,
+            message: `Ditemukan ${routes.length} route`,
+            data: routes
+        };
+    } catch (error) {
+        logger.error(`Error getting routes: ${error.message}`);
+        return { success: false, message: `Gagal ambil data route: ${error.message}`, data: [] };
+    }
+}
+
+// Fungsi untuk menambah route
+async function addRoute(destination, gateway, distance = '1') {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal' };
+        }
+
+        await conn.write('/ip/route/add', [
+            `=dst-address=${destination}`,
+            `=gateway=${gateway}`,
+            `=distance=${distance}`
+        ]);
+
+        return { success: true, message: `Route ${destination} via ${gateway} berhasil ditambahkan` };
+    } catch (error) {
+        logger.error(`Error adding route: ${error.message}`);
+        return { success: false, message: `Gagal menambah route: ${error.message}` };
+    }
+}
+
+// Fungsi untuk menghapus route
+async function deleteRoute(destination) {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal' };
+        }
+
+        // Cari route
+        const routes = await conn.write('/ip/route/print', [
+            `?dst-address=${destination}`
+        ]);
+
+        if (routes.length === 0) {
+            return { success: false, message: 'Route tidak ditemukan' };
+        }
+
+        // Hapus route
+        await conn.write('/ip/route/remove', [
+            `=.id=${routes[0]['.id']}`
+        ]);
+
+        return { success: true, message: `Route ${destination} berhasil dihapus` };
+    } catch (error) {
+        logger.error(`Error deleting route: ${error.message}`);
+        return { success: false, message: `Gagal menghapus route: ${error.message}` };
+    }
+}
+
+// Fungsi untuk mendapatkan DHCP leases
+async function getDHCPLeases() {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal', data: [] };
+        }
+
+        const leases = await conn.write('/ip/dhcp-server/lease/print');
+        return {
+            success: true,
+            message: `Ditemukan ${leases.length} DHCP lease`,
+            data: leases
+        };
+    } catch (error) {
+        logger.error(`Error getting DHCP leases: ${error.message}`);
+        return { success: false, message: `Gagal ambil data DHCP lease: ${error.message}`, data: [] };
+    }
+}
+
+// Fungsi untuk mendapatkan DHCP server
+async function getDHCPServers() {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal', data: [] };
+        }
+
+        const servers = await conn.write('/ip/dhcp-server/print');
+        return {
+            success: true,
+            message: `Ditemukan ${servers.length} DHCP server`,
+            data: servers
+        };
+    } catch (error) {
+        logger.error(`Error getting DHCP servers: ${error.message}`);
+        return { success: false, message: `Gagal ambil data DHCP server: ${error.message}`, data: [] };
+    }
+}
+
+// Fungsi untuk ping
+async function pingHost(host, count = '4') {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal', data: null };
+        }
+
+        const result = await conn.write('/ping', [
+            `=address=${host}`,
+            `=count=${count}`
+        ]);
+
+        return {
+            success: true,
+            message: `Ping ke ${host} selesai`,
+            data: result
+        };
+    } catch (error) {
+        logger.error(`Error pinging host: ${error.message}`);
+        return { success: false, message: `Gagal ping ke ${host}: ${error.message}`, data: null };
+    }
+}
+
+// Fungsi untuk mendapatkan system logs
+async function getSystemLogs(topics = '', count = '50') {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal', data: [] };
+        }
+
+        const params = [];
+        if (topics) {
+            params.push(`?topics~${topics}`);
+        }
+
+        const logs = await conn.write('/log/print', params);
+
+        // Batasi jumlah log yang dikembalikan
+        const limitedLogs = logs.slice(0, parseInt(count));
+
+        return {
+            success: true,
+            message: `Ditemukan ${limitedLogs.length} log entries`,
+            data: limitedLogs
+        };
+    } catch (error) {
+        logger.error(`Error getting system logs: ${error.message}`);
+        return { success: false, message: `Gagal ambil system logs: ${error.message}`, data: [] };
+    }
+}
+
+// Fungsi untuk mendapatkan daftar profile PPPoE
+async function getPPPoEProfiles() {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal', data: [] };
+        }
+
+        const profiles = await conn.write('/ppp/profile/print');
+        return {
+            success: true,
+            message: `Ditemukan ${profiles.length} PPPoE profile`,
+            data: profiles
+        };
+    } catch (error) {
+        logger.error(`Error getting PPPoE profiles: ${error.message}`);
+        return { success: false, message: `Gagal ambil data PPPoE profile: ${error.message}`, data: [] };
+    }
+}
+
+// Fungsi untuk mendapatkan daftar profile Hotspot
+async function getHotspotProfiles() {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal', data: [] };
+        }
+
+        const profiles = await conn.write('/ip/hotspot/user/profile/print');
+        return {
+            success: true,
+            message: `Ditemukan ${profiles.length} Hotspot profile`,
+            data: profiles
+        };
+    } catch (error) {
+        logger.error(`Error getting Hotspot profiles: ${error.message}`);
+        return { success: false, message: `Gagal ambil data Hotspot profile: ${error.message}`, data: [] };
+    }
+}
+
+// Fungsi untuk mendapatkan firewall rules
+async function getFirewallRules(chain = '') {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal', data: [] };
+        }
+
+        const params = [];
+        if (chain) {
+            params.push(`?chain=${chain}`);
+        }
+
+        const rules = await conn.write('/ip/firewall/filter/print', params);
+        return {
+            success: true,
+            message: `Ditemukan ${rules.length} firewall rule${chain ? ` untuk chain ${chain}` : ''}`,
+            data: rules
+        };
+    } catch (error) {
+        logger.error(`Error getting firewall rules: ${error.message}`);
+        return { success: false, message: `Gagal ambil data firewall rule: ${error.message}`, data: [] };
+    }
+}
+
+// Fungsi untuk restart router
+async function restartRouter() {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal' };
+        }
+
+        await conn.write('/system/reboot');
+        return { success: true, message: 'Router akan restart dalam beberapa detik' };
+    } catch (error) {
+        logger.error(`Error restarting router: ${error.message}`);
+        return { success: false, message: `Gagal restart router: ${error.message}` };
+    }
+}
+
+// Fungsi untuk mendapatkan identity router
+async function getRouterIdentity() {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal', data: null };
+        }
+
+        const identity = await conn.write('/system/identity/print');
+        return {
+            success: true,
+            message: 'Identity router berhasil diambil',
+            data: identity[0]
+        };
+    } catch (error) {
+        logger.error(`Error getting router identity: ${error.message}`);
+        return { success: false, message: `Gagal ambil identity router: ${error.message}`, data: null };
+    }
+}
+
+// Fungsi untuk set identity router
+async function setRouterIdentity(name) {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal' };
+        }
+
+        await conn.write('/system/identity/set', [
+            `=name=${name}`
+        ]);
+
+        return { success: true, message: `Identity router berhasil diubah menjadi: ${name}` };
+    } catch (error) {
+        logger.error(`Error setting router identity: ${error.message}`);
+        return { success: false, message: `Gagal mengubah identity router: ${error.message}` };
+    }
+}
+
+// Fungsi untuk mendapatkan clock router
+async function getRouterClock() {
+    try {
+        const conn = await getMikrotikConnection();
+        if (!conn) {
+            logger.error('No Mikrotik connection available');
+            return { success: false, message: 'Koneksi ke Mikrotik gagal', data: null };
+        }
+
+        const clock = await conn.write('/system/clock/print');
+        return {
+            success: true,
+            message: 'Clock router berhasil diambil',
+            data: clock[0]
+        };
+    } catch (error) {
+        logger.error(`Error getting router clock: ${error.message}`);
+        return { success: false, message: `Gagal ambil clock router: ${error.message}`, data: null };
+    }
+}
+
+// Fungsi untuk mendapatkan semua user (hotspot + PPPoE)
+async function getAllUsers() {
+    try {
+        // Ambil user hotspot
+        const hotspotResult = await getActiveHotspotUsers();
+        const hotspotUsers = hotspotResult.success ? hotspotResult.data : [];
+
+        // Ambil user PPPoE aktif
+        const pppoeResult = await getActivePPPoEConnections();
+        const pppoeUsers = pppoeResult.success ? pppoeResult.data : [];
+
+        // Ambil user PPPoE offline
+        const offlineResult = await getInactivePPPoEUsers();
+        const offlineUsers = offlineResult.success ? offlineResult.data : [];
+
+        return {
+            success: true,
+            message: `Total: ${hotspotUsers.length} hotspot aktif, ${pppoeUsers.length} PPPoE aktif, ${offlineUsers.length} PPPoE offline`,
+            data: {
+                hotspotActive: hotspotUsers,
+                pppoeActive: pppoeUsers,
+                pppoeOffline: offlineUsers,
+                totalActive: hotspotUsers.length + pppoeUsers.length,
+                totalOffline: offlineUsers.length
+            }
+        };
+    } catch (error) {
+        logger.error(`Error getting all users: ${error.message}`);
+        return { success: false, message: `Gagal ambil data semua user: ${error.message}`, data: null };
+    }
+}
+
 // ...
 module.exports = {
     setSock,
@@ -530,5 +1035,26 @@ module.exports = {
     addPPPoESecret,
     deletePPPoESecret,
     setPPPoEProfile,
-    monitorPPPoEConnections
+    monitorPPPoEConnections,
+    getInterfaces,
+    getInterfaceDetail,
+    setInterfaceStatus,
+    getIPAddresses,
+    addIPAddress,
+    deleteIPAddress,
+    getRoutes,
+    addRoute,
+    deleteRoute,
+    getDHCPLeases,
+    getDHCPServers,
+    pingHost,
+    getSystemLogs,
+    getPPPoEProfiles,
+    getHotspotProfiles,
+    getFirewallRules,
+    restartRouter,
+    getRouterIdentity,
+    setRouterIdentity,
+    getRouterClock,
+    getAllUsers
 };

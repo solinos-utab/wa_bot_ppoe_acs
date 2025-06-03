@@ -22,6 +22,9 @@ const {
     getOfflinePPPoEUsers
 } = require('./mikrotik');
 
+// Import handler perintah MikroTik baru
+const mikrotikCommands = require('./mikrotik-commands');
+
 // Import modul addWAN
 const { handleAddWAN } = require('./addWAN');
 
@@ -764,6 +767,12 @@ async function handleHelpCommand(remoteJid, isAdmin = false) {
 • 🔄 *refresh* — Refresh data perangkat Anda
 • 📝 *gantiwifi [nama]* — Ganti nama WiFi
 • 🔒 *gantipass [password]* — Ganti password WiFi
+• 📱 *devices* — Lihat perangkat terhubung WiFi
+• 📊 *speedtest* — Info bandwidth perangkat
+• 🔧 *diagnostic* — Diagnostik jaringan
+• 📊 *history* — Riwayat koneksi
+• 🔄 *restart* — Restart perangkat (perlu konfirmasi)
+• ⚠️ *factory reset* — Factory reset (perlu konfirmasi)
 `;
 
         if (isAdmin) {
@@ -773,12 +782,17 @@ async function handleHelpCommand(remoteJid, isAdmin = false) {
 🖥️ *Manajemen Perangkat:*
 ▸ *admin* — Menampilkan menu admin
 ▸ *cek [nomor]* — Cek status ONU pelanggan
+▸ *detail [nomor]* — Detail lengkap perangkat
 ▸ *list* — Daftar semua ONU
 ▸ *cekall* — Cek status semua ONU
 
 📶 *Manajemen WiFi:*
 ▸ *editssid [nomor] [ssid]* — Edit SSID pelanggan
 ▸ *editpass [nomor] [password]* — Edit password WiFi pelanggan
+
+🔧 *Kontrol Perangkat:*
+▸ *adminrestart [nomor]* — Restart perangkat pelanggan
+▸ *adminfactory [nomor]* — Factory reset perangkat pelanggan
 
 🌐 *Manajemen Hotspot:*
 ▸ *addhotspot [user] [pass] [profile]* — Tambah user hotspot
@@ -792,14 +806,39 @@ async function handleHelpCommand(remoteJid, isAdmin = false) {
 ▸ *pppoe* — Lihat koneksi PPPoE aktif
 ▸ *offline* — Lihat user PPPoE offline
 
+🔌 *Manajemen Interface:*
+▸ *interfaces* — Daftar semua interface
+▸ *interface [nama]* — Detail interface tertentu
+▸ *enableif [nama]* — Aktifkan interface
+▸ *disableif [nama]* — Nonaktifkan interface
+
+🌐 *Manajemen IP & Route:*
+▸ *ipaddress* — Daftar IP address
+▸ *routes* — Daftar routing table
+▸ *dhcp* — Daftar DHCP leases
+
+👥 *Manajemen User & Profile:*
+▸ *users* — Ringkasan semua user
+▸ *profiles [type]* — Daftar profile (pppoe/hotspot/all)
+
+🛡️ *Firewall & Security:*
+▸ *firewall [chain]* — Daftar firewall rules
+
+🔧 *Tools & Monitoring:*
+▸ *ping [host] [count]* — Ping ke host
+▸ *logs [topics] [count]* — System logs
+▸ *resource* — Info resource router
+▸ *clock* — Waktu router
+▸ *identity [nama]* — Identity router
+
+⚙️ *System Management:*
+▸ *reboot* — Restart router (perlu konfirmasi)
+
 🔌 *Manajemen WAN:*
 ▸ *addwan [nomor] [tipe] [mode]* — Tambah konfigurasi WAN
   ↳ Tipe: ppp atau ip
   ↳ Mode: bridge atau route
   ↳ Contoh: addwan 081234567890 ppp route
-
-📊 *Monitoring:*
-▸ *resource* — Info resource router
 
 ⚙️ *Pengaturan Bot:*
 ▸ *setheader [teks_header_baru]* — Ganti header pesan bot
@@ -846,12 +885,17 @@ async function sendAdminMenuList(remoteJid) {
 🖥️ *Manajemen Perangkat:*
 ▸ *admin* — Menampilkan menu admin
 ▸ *cek [nomor]* — Cek status ONU pelanggan
+▸ *detail [nomor]* — Detail lengkap perangkat
 ▸ *list* — Daftar semua ONU
 ▸ *cekall* — Cek status semua ONU
 
 📶 *Manajemen WiFi:*
 ▸ *editssid [nomor] [ssid]* — Edit SSID pelanggan
 ▸ *editpass [nomor] [password]* — Edit password WiFi pelanggan
+
+🔧 *Kontrol Perangkat:*
+▸ *adminrestart [nomor]* — Restart perangkat pelanggan
+▸ *adminfactory [nomor]* — Factory reset perangkat pelanggan
 
 🌐 *Manajemen Hotspot:*
 ▸ *addhotspot [user] [pass] [profile]* — Tambah user hotspot
@@ -865,14 +909,39 @@ async function sendAdminMenuList(remoteJid) {
 ▸ *pppoe* — Lihat koneksi PPPoE aktif
 ▸ *offline* — Lihat user PPPoE offline
 
+🔌 *Manajemen Interface:*
+▸ *interfaces* — Daftar semua interface
+▸ *interface [nama]* — Detail interface tertentu
+▸ *enableif [nama]* — Aktifkan interface
+▸ *disableif [nama]* — Nonaktifkan interface
+
+🌐 *Manajemen IP & Route:*
+▸ *ipaddress* — Daftar IP address
+▸ *routes* — Daftar routing table
+▸ *dhcp* — Daftar DHCP leases
+
+👥 *Manajemen User & Profile:*
+▸ *users* — Ringkasan semua user
+▸ *profiles [type]* — Daftar profile (pppoe/hotspot/all)
+
+🛡️ *Firewall & Security:*
+▸ *firewall [chain]* — Daftar firewall rules
+
+🔧 *Tools & Monitoring:*
+▸ *ping [host] [count]* — Ping ke host
+▸ *logs [topics] [count]* — System logs
+▸ *resource* — Info resource router
+▸ *clock* — Waktu router
+▸ *identity [nama]* — Identity router
+
+⚙️ *System Management:*
+▸ *reboot* — Restart router (perlu konfirmasi)
+
 🔌 *Manajemen WAN:*
 ▸ *addwan [nomor] [tipe] [mode]* — Tambah konfigurasi WAN
   ↳ Tipe: ppp atau ip
   ↳ Mode: bridge atau route
   ↳ Contoh: addwan 081234567890 ppp route
-
-📊 *Monitoring:*
-▸ *resource* — Info resource router
 
 ⚙️ *Pengaturan Bot:*
 ▸ *setheader [teks_header_baru]* — Ganti header pesan bot
@@ -4094,6 +4163,76 @@ Pesan GenieACS telah diaktifkan kembali.`);
         
         // Perintah untuk menonaktifkan/mengaktifkan GenieACS telah dipindahkan ke atas
 
+        // Perintah factory reset (untuk pelanggan)
+        if (command === 'factory reset' || command === '!factory reset' || command === '/factory reset') {
+            console.log(`Menjalankan perintah factory reset untuk ${senderNumber}`);
+            if (genieacsCommandsEnabled) {
+                await genieacsCommands.handleFactoryReset(remoteJid, senderNumber);
+            } else {
+                await sendGenieACSDisabledMessage(remoteJid);
+            }
+            return;
+        }
+
+        // Perintah konfirmasi factory reset
+        if (command === 'confirm factory reset' || command === '!confirm factory reset' || command === '/confirm factory reset') {
+            console.log(`Menjalankan konfirmasi factory reset untuk ${senderNumber}`);
+            if (genieacsCommandsEnabled) {
+                await genieacsCommands.handleFactoryResetConfirmation(remoteJid, senderNumber);
+            } else {
+                await sendGenieACSDisabledMessage(remoteJid);
+            }
+            return;
+        }
+
+        // Perintah perangkat terhubung
+        if (command === 'devices' || command === '!devices' || command === '/devices' ||
+            command === 'connected' || command === '!connected' || command === '/connected') {
+            console.log(`Menjalankan perintah perangkat terhubung untuk ${senderNumber}`);
+            if (genieacsCommandsEnabled) {
+                await genieacsCommands.handleConnectedDevices(remoteJid, senderNumber);
+            } else {
+                await sendGenieACSDisabledMessage(remoteJid);
+            }
+            return;
+        }
+
+        // Perintah speed test / bandwidth
+        if (command === 'speedtest' || command === '!speedtest' || command === '/speedtest' ||
+            command === 'bandwidth' || command === '!bandwidth' || command === '/bandwidth') {
+            console.log(`Menjalankan perintah speed test untuk ${senderNumber}`);
+            if (genieacsCommandsEnabled) {
+                await genieacsCommands.handleSpeedTest(remoteJid, senderNumber);
+            } else {
+                await sendGenieACSDisabledMessage(remoteJid);
+            }
+            return;
+        }
+
+        // Perintah diagnostik jaringan
+        if (command === 'diagnostic' || command === '!diagnostic' || command === '/diagnostic' ||
+            command === 'diagnosa' || command === '!diagnosa' || command === '/diagnosa') {
+            console.log(`Menjalankan perintah diagnostik jaringan untuk ${senderNumber}`);
+            if (genieacsCommandsEnabled) {
+                await genieacsCommands.handleNetworkDiagnostic(remoteJid, senderNumber);
+            } else {
+                await sendGenieACSDisabledMessage(remoteJid);
+            }
+            return;
+        }
+
+        // Perintah riwayat koneksi
+        if (command === 'history' || command === '!history' || command === '/history' ||
+            command === 'riwayat' || command === '!riwayat' || command === '/riwayat') {
+            console.log(`Menjalankan perintah riwayat koneksi untuk ${senderNumber}`);
+            if (genieacsCommandsEnabled) {
+                await genieacsCommands.handleConnectionHistory(remoteJid, senderNumber);
+            } else {
+                await sendGenieACSDisabledMessage(remoteJid);
+            }
+            return;
+        }
+
         // Alias admin: cekstatus [nomor] atau cekstatus[nomor]
         if (isAdmin && (command.startsWith('cekstatus ') || command.startsWith('cekstatus'))) {
             let customerNumber = '';
@@ -4191,13 +4330,96 @@ Pesan GenieACS telah diaktifkan kembali.`);
                     await handleAdminEditPassword(remoteJid, params);
                     return;
                 } else {
-                    await sock.sendMessage(remoteJid, { 
+                    await sock.sendMessage(remoteJid, {
                         text: `❌ *FORMAT Salah!*\n\n` +
                               `Format yang benar:\n` +
                               `editpass [nomor_pelanggan] [password_baru]\n\n` +
                               `Contoh:\n` +
                               `editpass 123456 password123`
                     });
+                    return;
+                }
+            }
+
+            // Perintah admin detail perangkat
+            if (command.toLowerCase().startsWith('detail ') || command.toLowerCase().startsWith('!detail ') || command.toLowerCase().startsWith('/detail ')) {
+                const params = messageText.split(' ').slice(1);
+                if (params.length >= 1) {
+                    console.log(`Menjalankan perintah admin detail untuk ${params[0]}`);
+                    if (genieacsCommandsEnabled) {
+                        await genieacsCommands.handleAdminDeviceDetail(remoteJid, params[0]);
+                    } else {
+                        await sendGenieACSDisabledMessage(remoteJid);
+                    }
+                    return;
+                } else {
+                    await sock.sendMessage(remoteJid, {
+                        text: `❌ *FORMAT Salah!*\n\n` +
+                              `Format yang benar:\n` +
+                              `detail [nomor_pelanggan]\n\n` +
+                              `Contoh:\n` +
+                              `detail 081234567890`
+                    });
+                    return;
+                }
+            }
+
+            // Perintah admin restart perangkat pelanggan
+            if (command.toLowerCase().startsWith('adminrestart ') || command.toLowerCase().startsWith('!adminrestart ') || command.toLowerCase().startsWith('/adminrestart ')) {
+                const params = messageText.split(' ').slice(1);
+                if (params.length >= 1) {
+                    console.log(`Menjalankan perintah admin restart untuk ${params[0]}`);
+                    if (genieacsCommandsEnabled) {
+                        await genieacsCommands.handleAdminRestartDevice(remoteJid, params[0]);
+                    } else {
+                        await sendGenieACSDisabledMessage(remoteJid);
+                    }
+                    return;
+                } else {
+                    await sock.sendMessage(remoteJid, {
+                        text: `❌ *FORMAT Salah!*\n\n` +
+                              `Format yang benar:\n` +
+                              `adminrestart [nomor_pelanggan]\n\n` +
+                              `Contoh:\n` +
+                              `adminrestart 081234567890`
+                    });
+                    return;
+                }
+            }
+
+            // Perintah admin factory reset perangkat pelanggan
+            if (command.toLowerCase().startsWith('adminfactory ') || command.toLowerCase().startsWith('!adminfactory ') || command.toLowerCase().startsWith('/adminfactory ')) {
+                const params = messageText.split(' ').slice(1);
+                if (params.length >= 1) {
+                    console.log(`Menjalankan perintah admin factory reset untuk ${params[0]}`);
+                    if (genieacsCommandsEnabled) {
+                        await genieacsCommands.handleAdminFactoryReset(remoteJid, params[0]);
+                    } else {
+                        await sendGenieACSDisabledMessage(remoteJid);
+                    }
+                    return;
+                } else {
+                    await sock.sendMessage(remoteJid, {
+                        text: `❌ *FORMAT Salah!*\n\n` +
+                              `Format yang benar:\n` +
+                              `adminfactory [nomor_pelanggan]\n\n` +
+                              `Contoh:\n` +
+                              `adminfactory 081234567890`
+                    });
+                    return;
+                }
+            }
+
+            // Perintah konfirmasi admin factory reset
+            if (command.toLowerCase().startsWith('confirm admin factory reset ') || command.toLowerCase().startsWith('!confirm admin factory reset ') || command.toLowerCase().startsWith('/confirm admin factory reset ')) {
+                const params = messageText.split(' ').slice(4); // Skip "confirm admin factory reset"
+                if (params.length >= 1) {
+                    console.log(`Menjalankan konfirmasi admin factory reset untuk ${params[0]}`);
+                    if (genieacsCommandsEnabled) {
+                        await genieacsCommands.handleAdminFactoryResetConfirmation(remoteJid, params[0]);
+                    } else {
+                        await sendGenieACSDisabledMessage(remoteJid);
+                    }
                     return;
                 }
             }
@@ -4352,6 +4574,138 @@ Pesan GenieACS telah diaktifkan kembali.`);
             if (command === 'offline' || command === '!offline' || command === '/offline') {
                 console.log(`Menjalankan perintah user PPPoE offline`);
                 await handleOfflineUsers(remoteJid);
+                return;
+            }
+
+            // Perintah daftar interface
+            if (command === 'interfaces' || command === '!interfaces' || command === '/interfaces') {
+                console.log(`Menjalankan perintah daftar interface`);
+                await mikrotikCommands.handleInterfaces(remoteJid);
+                return;
+            }
+
+            // Perintah detail interface
+            if (command.startsWith('interface ') || command.startsWith('!interface ') || command.startsWith('/interface ')) {
+                const params = messageText.split(' ').slice(1);
+                if (params.length >= 1) {
+                    console.log(`Menjalankan perintah detail interface ${params[0]}`);
+                    await mikrotikCommands.handleInterfaceDetail(remoteJid, params);
+                    return;
+                }
+            }
+
+            // Perintah enable interface
+            if (command.startsWith('enableif ') || command.startsWith('!enableif ') || command.startsWith('/enableif ')) {
+                const params = messageText.split(' ').slice(1);
+                if (params.length >= 1) {
+                    console.log(`Menjalankan perintah enable interface ${params[0]}`);
+                    await mikrotikCommands.handleInterfaceStatus(remoteJid, params, true);
+                    return;
+                }
+            }
+
+            // Perintah disable interface
+            if (command.startsWith('disableif ') || command.startsWith('!disableif ') || command.startsWith('/disableif ')) {
+                const params = messageText.split(' ').slice(1);
+                if (params.length >= 1) {
+                    console.log(`Menjalankan perintah disable interface ${params[0]}`);
+                    await mikrotikCommands.handleInterfaceStatus(remoteJid, params, false);
+                    return;
+                }
+            }
+
+            // Perintah daftar IP address
+            if (command === 'ipaddress' || command === '!ipaddress' || command === '/ipaddress') {
+                console.log(`Menjalankan perintah daftar IP address`);
+                await mikrotikCommands.handleIPAddresses(remoteJid);
+                return;
+            }
+
+            // Perintah routing table
+            if (command === 'routes' || command === '!routes' || command === '/routes') {
+                console.log(`Menjalankan perintah routing table`);
+                await mikrotikCommands.handleRoutes(remoteJid);
+                return;
+            }
+
+            // Perintah DHCP leases
+            if (command === 'dhcp' || command === '!dhcp' || command === '/dhcp') {
+                console.log(`Menjalankan perintah DHCP leases`);
+                await mikrotikCommands.handleDHCPLeases(remoteJid);
+                return;
+            }
+
+            // Perintah ping
+            if (command.startsWith('ping ') || command.startsWith('!ping ') || command.startsWith('/ping ')) {
+                const params = messageText.split(' ').slice(1);
+                if (params.length >= 1) {
+                    console.log(`Menjalankan perintah ping ${params[0]}`);
+                    await mikrotikCommands.handlePing(remoteJid, params);
+                    return;
+                }
+            }
+
+            // Perintah system logs
+            if (command === 'logs' || command === '!logs' || command === '/logs' ||
+                command.startsWith('logs ') || command.startsWith('!logs ') || command.startsWith('/logs ')) {
+                const params = messageText.split(' ').slice(1);
+                console.log(`Menjalankan perintah system logs`);
+                await mikrotikCommands.handleSystemLogs(remoteJid, params);
+                return;
+            }
+
+            // Perintah profiles
+            if (command === 'profiles' || command === '!profiles' || command === '/profiles' ||
+                command.startsWith('profiles ') || command.startsWith('!profiles ') || command.startsWith('/profiles ')) {
+                const params = messageText.split(' ').slice(1);
+                console.log(`Menjalankan perintah profiles`);
+                await mikrotikCommands.handleProfiles(remoteJid, params);
+                return;
+            }
+
+            // Perintah firewall
+            if (command === 'firewall' || command === '!firewall' || command === '/firewall' ||
+                command.startsWith('firewall ') || command.startsWith('!firewall ') || command.startsWith('/firewall ')) {
+                const params = messageText.split(' ').slice(1);
+                console.log(`Menjalankan perintah firewall`);
+                await mikrotikCommands.handleFirewall(remoteJid, params);
+                return;
+            }
+
+            // Perintah semua user
+            if (command === 'users' || command === '!users' || command === '/users') {
+                console.log(`Menjalankan perintah semua user`);
+                await mikrotikCommands.handleAllUsers(remoteJid);
+                return;
+            }
+
+            // Perintah clock router
+            if (command === 'clock' || command === '!clock' || command === '/clock') {
+                console.log(`Menjalankan perintah clock router`);
+                await mikrotikCommands.handleRouterClock(remoteJid);
+                return;
+            }
+
+            // Perintah identity router
+            if (command === 'identity' || command === '!identity' || command === '/identity' ||
+                command.startsWith('identity ') || command.startsWith('!identity ') || command.startsWith('/identity ')) {
+                const params = messageText.split(' ').slice(1);
+                console.log(`Menjalankan perintah identity router`);
+                await mikrotikCommands.handleRouterIdentity(remoteJid, params);
+                return;
+            }
+
+            // Perintah restart router
+            if (command === 'reboot' || command === '!reboot' || command === '/reboot') {
+                console.log(`Menjalankan perintah restart router`);
+                await mikrotikCommands.handleRestartRouter(remoteJid);
+                return;
+            }
+
+            // Perintah konfirmasi restart
+            if (command === 'confirm restart' || command === '!confirm restart' || command === '/confirm restart') {
+                console.log(`Menjalankan konfirmasi restart router`);
+                await mikrotikCommands.handleConfirmRestart(remoteJid);
                 return;
             }
             

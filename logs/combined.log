@@ -1281,3 +1281,61 @@
 2025-06-02 19:19:57 info: Monitoring PPPoE connections: 161 active connections
 2025-06-02 19:20:57 info: Monitoring PPPoE connections: 161 active connections
 2025-06-02 19:21:17 info: Message received
+2025-06-03 12:03:05 info: PPPoE monitoring started with interval 60000ms
+2025-06-03 12:03:05 info: Attempting to start server on configured port: 4500
+2025-06-03 12:03:05 info: Mencoba memulai server pada port 4500...
+2025-06-03 12:03:05 info: Server berhasil berjalan pada port 4500
+2025-06-03 12:03:05 info: Environment: development
+2025-06-03 12:03:05 info: WhatsApp connected successfully
+2025-06-03 16:36:50 info: PPPoE monitoring started with interval 60000ms
+2025-06-03 16:36:50 info: Attempting to start server on configured port: 4500
+2025-06-03 16:36:50 info: Mencoba memulai server pada port 4500...
+2025-06-03 16:36:50 info: Server berhasil berjalan pada port 4500
+2025-06-03 16:36:50 info: Environment: development
+2025-06-03 16:36:50 info: WhatsApp connected successfully
+2025-06-03 16:37:50 info: Connected to Mikrotik at 192.168.8.1:8700
+2025-06-03 16:37:50 info: PPPoE LOGIN:
+2025-06-03 16:37:50 info: Monitoring PPPoE connections: 161 active connections
+2025-06-03 16:38:50 info: Monitoring PPPoE connections: 161 active connections
+2025-06-03 16:39:50 info: Monitoring PPPoE connections: 161 active connections
+2025-06-03 16:40:13 info: Message received
+2025-06-03 16:40:50 info: Monitoring PPPoE connections: 161 active connections
+2025-06-03 16:41:50 info: Monitoring PPPoE connections: 161 active connections
+2025-06-03 16:41:58 info: Message received
+2025-06-03 16:42:50 info: PPPoE LOGIN:
+2025-06-03 16:42:50 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 16:43:50 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 16:44:50 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 16:45:50 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 16:46:50 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 16:47:50 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 16:48:50 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 16:49:50 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 16:50:50 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 16:51:50 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 16:52:50 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 16:53:50 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 16:54:50 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 16:55:50 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 16:56:50 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 16:57:50 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 16:58:50 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 16:59:50 info: PPPoE LOGOUT:
+2025-06-03 16:59:50 info: Monitoring PPPoE connections: 161 active connections
+2025-06-03 17:00:50 info: Monitoring PPPoE connections: 161 active connections
+2025-06-03 17:01:50 info: Monitoring PPPoE connections: 161 active connections
+2025-06-03 17:02:50 info: PPPoE LOGOUT:
+2025-06-03 17:02:50 info: Monitoring PPPoE connections: 160 active connections
+2025-06-03 17:03:47 info: PPPoE monitoring started with interval 60000ms
+2025-06-03 17:03:47 info: Attempting to start server on configured port: 4500
+2025-06-03 17:03:47 info: Mencoba memulai server pada port 4500...
+2025-06-03 17:03:47 info: Server berhasil berjalan pada port 4500
+2025-06-03 17:03:47 info: Environment: development
+2025-06-03 17:03:47 info: WhatsApp connected successfully
+2025-06-03 17:04:02 info: Message received
+2025-06-03 17:04:47 info: Connected to Mikrotik at 192.168.8.1:8700
+2025-06-03 17:04:47 info: PPPoE LOGIN:
+2025-06-03 17:04:47 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 17:05:47 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 17:06:47 info: Monitoring PPPoE connections: 162 active connections
+2025-06-03 17:07:47 info: Monitoring PPPoE connections: 162 active connections

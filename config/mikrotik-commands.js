@@ -1,6 +1,6 @@
 // mikrotik-commands.js - Module for handling Mikrotik commands via WhatsApp
 const { logger } = require('./logger');
-const { 
+const {
     addHotspotUser,
     addPPPoESecret,
     setPPPoEProfile,
@@ -9,7 +9,28 @@ const {
     getActivePPPoEConnections,
     getInactivePPPoEUsers,
     deleteHotspotUser,
-    deletePPPoESecret
+    deletePPPoESecret,
+    getInterfaces,
+    getInterfaceDetail,
+    setInterfaceStatus,
+    getIPAddresses,
+    addIPAddress,
+    deleteIPAddress,
+    getRoutes,
+    addRoute,
+    deleteRoute,
+    getDHCPLeases,
+    getDHCPServers,
+    pingHost,
+    getSystemLogs,
+    getPPPoEProfiles,
+    getHotspotProfiles,
+    getFirewallRules,
+    restartRouter,
+    getRouterIdentity,
+    setRouterIdentity,
+    getRouterClock,
+    getAllUsers
 } = require('./mikrotik');
 
 let sock = null;
@@ -322,6 +343,561 @@ async function handleOfflineUsers(remoteJid) {
     }
 }
 
+// Handler untuk melihat daftar interface
+async function handleInterfaces(remoteJid) {
+    if (!sock) {
+        console.error('Sock instance not set');
+        return;
+    }
+
+    const result = await getInterfaces();
+    if (!result.success) {
+        await sock.sendMessage(remoteJid, { text: `❌ ${result.message}` });
+        return;
+    }
+
+    const interfaces = result.data;
+    let message = '🔌 *DAFTAR INTERFACE*\n\n';
+
+    if (!interfaces || interfaces.length === 0) {
+        message += 'Tidak ada interface ditemukan';
+    } else {
+        message += `Total: ${interfaces.length} interface\n\n`;
+        interfaces.forEach((iface, index) => {
+            if (index < 15) { // Batasi tampilan
+                const status = iface.disabled === 'true' ? '🔴 Disabled' : '🟢 Enabled';
+                const running = iface.running === 'true' ? '▶️ Running' : '⏸️ Not Running';
+                message += `${index + 1}. *${iface.name}*\n` +
+                          `   • Type: ${iface.type || 'N/A'}\n` +
+                          `   • Status: ${status}\n` +
+                          `   • Running: ${running}\n`;
+                if (iface['mac-address']) {
+                    message += `   • MAC: ${iface['mac-address']}\n`;
+                }
+                message += '\n';
+            }
+        });
+        if (interfaces.length > 15) {
+            message += `... dan ${interfaces.length - 15} interface lainnya`;
+        }
+    }
+
+    await sock.sendMessage(remoteJid, { text: message });
+}
+
+// Handler untuk detail interface tertentu
+async function handleInterfaceDetail(remoteJid, params) {
+    if (!sock) {
+        console.error('Sock instance not set');
+        return;
+    }
+
+    if (params.length < 1) {
+        await sock.sendMessage(remoteJid, {
+            text: `❌ *Format Salah!*\n\n` +
+                  `Format yang benar:\n` +
+                  `interface [nama_interface]\n\n` +
+                  `Contoh:\n` +
+                  `• interface ether1\n` +
+                  `• interface wlan1`
+        });
+        return;
+    }
+
+    const [interfaceName] = params;
+    const result = await getInterfaceDetail(interfaceName);
+
+    if (!result.success) {
+        await sock.sendMessage(remoteJid, { text: `❌ ${result.message}` });
+        return;
+    }
+
+    const iface = result.data;
+    const status = iface.disabled === 'true' ? '🔴 Disabled' : '🟢 Enabled';
+    const running = iface.running === 'true' ? '▶️ Running' : '⏸️ Not Running';
+
+    let message = `🔌 *DETAIL INTERFACE: ${iface.name}*\n\n`;
+    message += `• Type: ${iface.type || 'N/A'}\n`;
+    message += `• Status: ${status}\n`;
+    message += `• Running: ${running}\n`;
+    if (iface['mac-address']) message += `• MAC: ${iface['mac-address']}\n`;
+    if (iface.mtu) message += `• MTU: ${iface.mtu}\n`;
+    if (iface['actual-mtu']) message += `• Actual MTU: ${iface['actual-mtu']}\n`;
+    if (iface['rx-byte']) message += `• RX Bytes: ${iface['rx-byte']}\n`;
+    if (iface['tx-byte']) message += `• TX Bytes: ${iface['tx-byte']}\n`;
+    if (iface['rx-packet']) message += `• RX Packets: ${iface['rx-packet']}\n`;
+    if (iface['tx-packet']) message += `• TX Packets: ${iface['tx-packet']}\n`;
+
+    await sock.sendMessage(remoteJid, { text: message });
+}
+
+// Handler untuk enable/disable interface
+async function handleInterfaceStatus(remoteJid, params, enable) {
+    if (!sock) {
+        console.error('Sock instance not set');
+        return;
+    }
+
+    if (params.length < 1) {
+        const action = enable ? 'enable' : 'disable';
+        await sock.sendMessage(remoteJid, {
+            text: `❌ *Format Salah!*\n\n` +
+                  `Format yang benar:\n` +
+                  `${action}if [nama_interface]\n\n` +
+                  `Contoh:\n` +
+                  `• ${action}if ether1\n` +
+                  `• ${action}if wlan1`
+        });
+        return;
+    }
+
+    const [interfaceName] = params;
+    const result = await setInterfaceStatus(interfaceName, enable);
+
+    await sock.sendMessage(remoteJid, {
+        text: `${result && result.success ? '✅' : '❌'} ${result && result.message ? result.message : 'Terjadi kesalahan'}\n\n` +
+              `Interface: ${interfaceName}`
+    });
+}
+
+// Handler untuk melihat IP addresses
+async function handleIPAddresses(remoteJid) {
+    if (!sock) {
+        console.error('Sock instance not set');
+        return;
+    }
+
+    const result = await getIPAddresses();
+    if (!result.success) {
+        await sock.sendMessage(remoteJid, { text: `❌ ${result.message}` });
+        return;
+    }
+
+    const addresses = result.data;
+    let message = '🌐 *DAFTAR IP ADDRESS*\n\n';
+
+    if (!addresses || addresses.length === 0) {
+        message += 'Tidak ada IP address ditemukan';
+    } else {
+        message += `Total: ${addresses.length} IP address\n\n`;
+        addresses.forEach((addr, index) => {
+            if (index < 20) { // Batasi tampilan
+                const status = addr.disabled === 'true' ? '🔴 Disabled' : '🟢 Enabled';
+                message += `${index + 1}. *${addr.address}*\n` +
+                          `   • Interface: ${addr.interface || 'N/A'}\n` +
+                          `   • Status: ${status}\n`;
+                if (addr.network) message += `   • Network: ${addr.network}\n`;
+                message += '\n';
+            }
+        });
+        if (addresses.length > 20) {
+            message += `... dan ${addresses.length - 20} IP address lainnya`;
+        }
+    }
+
+    await sock.sendMessage(remoteJid, { text: message });
+}
+
+// Handler untuk melihat routing table
+async function handleRoutes(remoteJid) {
+    if (!sock) {
+        console.error('Sock instance not set');
+        return;
+    }
+
+    const result = await getRoutes();
+    if (!result.success) {
+        await sock.sendMessage(remoteJid, { text: `❌ ${result.message}` });
+        return;
+    }
+
+    const routes = result.data;
+    let message = '🛣️ *ROUTING TABLE*\n\n';
+
+    if (!routes || routes.length === 0) {
+        message += 'Tidak ada route ditemukan';
+    } else {
+        message += `Total: ${routes.length} route\n\n`;
+        routes.forEach((route, index) => {
+            if (index < 15) { // Batasi tampilan
+                const status = route.disabled === 'true' ? '🔴 Disabled' : '🟢 Enabled';
+                const active = route.active === 'true' ? '✅ Active' : '❌ Inactive';
+                message += `${index + 1}. *${route['dst-address'] || 'N/A'}*\n` +
+                          `   • Gateway: ${route.gateway || 'N/A'}\n` +
+                          `   • Distance: ${route.distance || 'N/A'}\n` +
+                          `   • Status: ${status}\n` +
+                          `   • Active: ${active}\n`;
+                if (route.interface) message += `   • Interface: ${route.interface}\n`;
+                message += '\n';
+            }
+        });
+        if (routes.length > 15) {
+            message += `... dan ${routes.length - 15} route lainnya`;
+        }
+    }
+
+    await sock.sendMessage(remoteJid, { text: message });
+}
+
+// Handler untuk DHCP leases
+async function handleDHCPLeases(remoteJid) {
+    if (!sock) {
+        console.error('Sock instance not set');
+        return;
+    }
+
+    const result = await getDHCPLeases();
+    if (!result.success) {
+        await sock.sendMessage(remoteJid, { text: `❌ ${result.message}` });
+        return;
+    }
+
+    const leases = result.data;
+    let message = '📋 *DHCP LEASES*\n\n';
+
+    if (!leases || leases.length === 0) {
+        message += 'Tidak ada DHCP lease ditemukan';
+    } else {
+        message += `Total: ${leases.length} lease\n\n`;
+        leases.forEach((lease, index) => {
+            if (index < 20) { // Batasi tampilan
+                const status = lease.status || 'N/A';
+                message += `${index + 1}. *${lease.address || 'N/A'}*\n` +
+                          `   • MAC: ${lease['mac-address'] || 'N/A'}\n` +
+                          `   • Status: ${status}\n`;
+                if (lease['host-name']) message += `   • Hostname: ${lease['host-name']}\n`;
+                if (lease.server) message += `   • Server: ${lease.server}\n`;
+                message += '\n';
+            }
+        });
+        if (leases.length > 20) {
+            message += `... dan ${leases.length - 20} lease lainnya`;
+        }
+    }
+
+    await sock.sendMessage(remoteJid, { text: message });
+}
+
+// Handler untuk ping
+async function handlePing(remoteJid, params) {
+    if (!sock) {
+        console.error('Sock instance not set');
+        return;
+    }
+
+    if (params.length < 1) {
+        await sock.sendMessage(remoteJid, {
+            text: `❌ *Format Salah!*\n\n` +
+                  `Format yang benar:\n` +
+                  `ping [host] [count]\n\n` +
+                  `Contoh:\n` +
+                  `• ping 8.8.8.8\n` +
+                  `• ping google.com 5`
+        });
+        return;
+    }
+
+    const [host, count = '4'] = params;
+
+    // Kirim pesan sedang memproses
+    await sock.sendMessage(remoteJid, {
+        text: `⏳ *Ping ke ${host}*\n\nSedang melakukan ping...`
+    });
+
+    const result = await pingHost(host, count);
+
+    if (!result.success) {
+        await sock.sendMessage(remoteJid, { text: `❌ ${result.message}` });
+        return;
+    }
+
+    let message = `🏓 *PING RESULT: ${host}*\n\n`;
+
+    if (result.data && result.data.length > 0) {
+        const pingData = result.data[0];
+        if (pingData.status === 'timeout') {
+            message += '❌ Request timeout\n';
+        } else {
+            message += `✅ Reply from ${pingData.host || host}\n`;
+            if (pingData.time) message += `• Time: ${pingData.time}\n`;
+            if (pingData.ttl) message += `• TTL: ${pingData.ttl}\n`;
+            if (pingData.size) message += `• Size: ${pingData.size} bytes\n`;
+        }
+    } else {
+        message += 'Ping selesai, tidak ada data response';
+    }
+
+    await sock.sendMessage(remoteJid, { text: message });
+}
+
+// Handler untuk system logs
+async function handleSystemLogs(remoteJid, params) {
+    if (!sock) {
+        console.error('Sock instance not set');
+        return;
+    }
+
+    const [topics = '', count = '20'] = params;
+
+    // Kirim pesan sedang memproses
+    await sock.sendMessage(remoteJid, {
+        text: `⏳ *Mengambil System Logs*\n\nSedang memproses...`
+    });
+
+    const result = await getSystemLogs(topics, count);
+
+    if (!result.success) {
+        await sock.sendMessage(remoteJid, { text: `❌ ${result.message}` });
+        return;
+    }
+
+    const logs = result.data;
+    let message = `📝 *SYSTEM LOGS*${topics ? ` (${topics})` : ''}\n\n`;
+
+    if (!logs || logs.length === 0) {
+        message += 'Tidak ada log ditemukan';
+    } else {
+        message += `Menampilkan ${logs.length} log terbaru:\n\n`;
+        logs.forEach((log, index) => {
+            if (index < 15) { // Batasi tampilan untuk WhatsApp
+                message += `${index + 1}. *${log.time || 'N/A'}*\n` +
+                          `   ${log.message || 'N/A'}\n`;
+                if (log.topics) message += `   Topics: ${log.topics}\n`;
+                message += '\n';
+            }
+        });
+        if (logs.length > 15) {
+            message += `... dan ${logs.length - 15} log lainnya`;
+        }
+    }
+
+    await sock.sendMessage(remoteJid, { text: message });
+}
+
+// Handler untuk melihat profiles
+async function handleProfiles(remoteJid, params) {
+    if (!sock) {
+        console.error('Sock instance not set');
+        return;
+    }
+
+    const [type = 'all'] = params;
+
+    let message = '👥 *DAFTAR PROFILES*\n\n';
+
+    if (type === 'pppoe' || type === 'all') {
+        const pppoeResult = await getPPPoEProfiles();
+        if (pppoeResult.success && pppoeResult.data.length > 0) {
+            message += '🔗 *PPPoE Profiles:*\n';
+            pppoeResult.data.forEach((profile, index) => {
+                if (index < 10) {
+                    message += `${index + 1}. *${profile.name}*\n`;
+                    if (profile['rate-limit']) message += `   • Rate Limit: ${profile['rate-limit']}\n`;
+                    if (profile['local-address']) message += `   • Local Address: ${profile['local-address']}\n`;
+                    if (profile['remote-address']) message += `   • Remote Address: ${profile['remote-address']}\n`;
+                    message += '\n';
+                }
+            });
+            if (pppoeResult.data.length > 10) {
+                message += `... dan ${pppoeResult.data.length - 10} profile lainnya\n`;
+            }
+            message += '\n';
+        }
+    }
+
+    if (type === 'hotspot' || type === 'all') {
+        const hotspotResult = await getHotspotProfiles();
+        if (hotspotResult.success && hotspotResult.data.length > 0) {
+            message += '🌐 *Hotspot Profiles:*\n';
+            hotspotResult.data.forEach((profile, index) => {
+                if (index < 10) {
+                    message += `${index + 1}. *${profile.name}*\n`;
+                    if (profile['rate-limit']) message += `   • Rate Limit: ${profile['rate-limit']}\n`;
+                    if (profile['session-timeout']) message += `   • Session Timeout: ${profile['session-timeout']}\n`;
+                    if (profile['idle-timeout']) message += `   • Idle Timeout: ${profile['idle-timeout']}\n`;
+                    message += '\n';
+                }
+            });
+            if (hotspotResult.data.length > 10) {
+                message += `... dan ${hotspotResult.data.length - 10} profile lainnya\n`;
+            }
+        }
+    }
+
+    await sock.sendMessage(remoteJid, { text: message });
+}
+
+// Handler untuk firewall rules
+async function handleFirewall(remoteJid, params) {
+    if (!sock) {
+        console.error('Sock instance not set');
+        return;
+    }
+
+    const [chain = ''] = params;
+
+    const result = await getFirewallRules(chain);
+    if (!result.success) {
+        await sock.sendMessage(remoteJid, { text: `❌ ${result.message}` });
+        return;
+    }
+
+    const rules = result.data;
+    let message = `🛡️ *FIREWALL RULES*${chain ? ` (${chain})` : ''}\n\n`;
+
+    if (!rules || rules.length === 0) {
+        message += 'Tidak ada firewall rule ditemukan';
+    } else {
+        message += `Total: ${rules.length} rule\n\n`;
+        rules.forEach((rule, index) => {
+            if (index < 10) { // Batasi tampilan
+                const status = rule.disabled === 'true' ? '🔴 Disabled' : '🟢 Enabled';
+                message += `${index + 1}. *Chain: ${rule.chain || 'N/A'}*\n` +
+                          `   • Action: ${rule.action || 'N/A'}\n` +
+                          `   • Status: ${status}\n`;
+                if (rule['src-address']) message += `   • Src: ${rule['src-address']}\n`;
+                if (rule['dst-address']) message += `   • Dst: ${rule['dst-address']}\n`;
+                if (rule.protocol) message += `   • Protocol: ${rule.protocol}\n`;
+                message += '\n';
+            }
+        });
+        if (rules.length > 10) {
+            message += `... dan ${rules.length - 10} rule lainnya`;
+        }
+    }
+
+    await sock.sendMessage(remoteJid, { text: message });
+}
+
+// Handler untuk restart router
+async function handleRestartRouter(remoteJid) {
+    if (!sock) {
+        console.error('Sock instance not set');
+        return;
+    }
+
+    // Konfirmasi restart
+    await sock.sendMessage(remoteJid, {
+        text: `⚠️ *PERINGATAN!*\n\n` +
+              `Anda akan me-restart router MikroTik.\n` +
+              `Semua koneksi akan terputus sementara.\n\n` +
+              `Ketik "confirm restart" untuk melanjutkan.`
+    });
+}
+
+// Handler untuk konfirmasi restart router
+async function handleConfirmRestart(remoteJid) {
+    if (!sock) {
+        console.error('Sock instance not set');
+        return;
+    }
+
+    const result = await restartRouter();
+
+    await sock.sendMessage(remoteJid, {
+        text: `${result && result.success ? '✅' : '❌'} ${result && result.message ? result.message : 'Terjadi kesalahan'}`
+    });
+}
+
+// Handler untuk router identity
+async function handleRouterIdentity(remoteJid, params) {
+    if (!sock) {
+        console.error('Sock instance not set');
+        return;
+    }
+
+    if (params.length === 0) {
+        // Tampilkan identity saat ini
+        const result = await getRouterIdentity();
+        if (!result.success) {
+            await sock.sendMessage(remoteJid, { text: `❌ ${result.message}` });
+            return;
+        }
+
+        const identity = result.data;
+        let message = `🏷️ *ROUTER IDENTITY*\n\n`;
+        message += `Name: ${identity.name || 'N/A'}`;
+
+        await sock.sendMessage(remoteJid, { text: message });
+    } else {
+        // Set identity baru
+        const newName = params.join(' ');
+        const result = await setRouterIdentity(newName);
+
+        await sock.sendMessage(remoteJid, {
+            text: `${result && result.success ? '✅' : '❌'} ${result && result.message ? result.message : 'Terjadi kesalahan'}`
+        });
+    }
+}
+
+// Handler untuk clock router
+async function handleRouterClock(remoteJid) {
+    if (!sock) {
+        console.error('Sock instance not set');
+        return;
+    }
+
+    const result = await getRouterClock();
+    if (!result.success) {
+        await sock.sendMessage(remoteJid, { text: `❌ ${result.message}` });
+        return;
+    }
+
+    const clock = result.data;
+    let message = `🕐 *ROUTER CLOCK*\n\n`;
+    message += `Date: ${clock.date || 'N/A'}\n`;
+    message += `Time: ${clock.time || 'N/A'}\n`;
+    if (clock['time-zone-name']) message += `Timezone: ${clock['time-zone-name']}\n`;
+
+    await sock.sendMessage(remoteJid, { text: message });
+}
+
+// Handler untuk semua user
+async function handleAllUsers(remoteJid) {
+    if (!sock) {
+        console.error('Sock instance not set');
+        return;
+    }
+
+    // Kirim pesan sedang memproses
+    await sock.sendMessage(remoteJid, {
+        text: `⏳ *Mengambil Data Semua User*\n\nSedang memproses...`
+    });
+
+    const result = await getAllUsers();
+    if (!result.success) {
+        await sock.sendMessage(remoteJid, { text: `❌ ${result.message}` });
+        return;
+    }
+
+    const data = result.data;
+    let message = `👥 *RINGKASAN SEMUA USER*\n\n`;
+    message += `📊 *Statistik:*\n`;
+    message += `• Total Aktif: ${data.totalActive}\n`;
+    message += `• Total Offline: ${data.totalOffline}\n`;
+    message += `• Hotspot Aktif: ${data.hotspotActive.length}\n`;
+    message += `• PPPoE Aktif: ${data.pppoeActive.length}\n`;
+    message += `• PPPoE Offline: ${data.pppoeOffline.length}\n\n`;
+
+    // Tampilkan beberapa user aktif
+    if (data.hotspotActive.length > 0) {
+        message += `🌐 *Hotspot Aktif (${Math.min(5, data.hotspotActive.length)} dari ${data.hotspotActive.length}):*\n`;
+        data.hotspotActive.slice(0, 5).forEach((user, index) => {
+            message += `${index + 1}. ${user.user || 'N/A'} (${user.address || 'N/A'})\n`;
+        });
+        message += '\n';
+    }
+
+    if (data.pppoeActive.length > 0) {
+        message += `🔗 *PPPoE Aktif (${Math.min(5, data.pppoeActive.length)} dari ${data.pppoeActive.length}):*\n`;
+        data.pppoeActive.slice(0, 5).forEach((user, index) => {
+            message += `${index + 1}. ${user.name || 'N/A'} (${user.address || 'N/A'})\n`;
+        });
+    }
+
+    await sock.sendMessage(remoteJid, { text: message });
+}
+
 module.exports = {
     setSock,
     handleAddHotspotUser,
@@ -332,5 +908,20 @@ module.exports = {
     handleActivePPPoE,
     handleDeleteHotspotUser,
     handleDeletePPPoESecret,
-    handleOfflineUsers
+    handleOfflineUsers,
+    handleInterfaces,
+    handleInterfaceDetail,
+    handleInterfaceStatus,
+    handleIPAddresses,
+    handleRoutes,
+    handleDHCPLeases,
+    handlePing,
+    handleSystemLogs,
+    handleProfiles,
+    handleFirewall,
+    handleRestartRouter,
+    handleConfirmRestart,
+    handleRouterIdentity,
+    handleRouterClock,
+    handleAllUsers
 };
