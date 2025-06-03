@@ -157,9 +157,20 @@ async function getRouterResources() {
             logger.error('No Mikrotik connection available');
             return null;
         }
-        
+
         // Dapatkan resource router
         const resources = await conn.write('/system/resource/print');
+
+        // Debug: Log semua data yang dikembalikan (bisa dinonaktifkan nanti)
+        // logger.info('=== DEBUG: Raw MikroTik Resource Response ===');
+        // logger.info('Full response:', JSON.stringify(resources, null, 2));
+        // logger.info('Response length:', resources.length);
+        // if (resources.length > 0) {
+        //     logger.info('First item:', JSON.stringify(resources[0], null, 2));
+        //     logger.info('Available fields:', Object.keys(resources[0]));
+        // }
+        // logger.info('=== END DEBUG ===');
+
         return resources[0];
     } catch (error) {
         logger.error(`Error getting router resources: ${error.message}`);
@@ -173,6 +184,40 @@ function safeNumber(val) {
     return isNaN(n) ? 0 : n;
 }
 
+// Helper function untuk parsing memory dengan berbagai format
+function parseMemoryValue(value) {
+    if (!value) return 0;
+
+    // Jika sudah berupa number, return langsung
+    if (typeof value === 'number') return value;
+
+    // Jika berupa string yang berisi angka
+    if (typeof value === 'string') {
+        // Coba parse sebagai integer dulu (untuk format bytes dari MikroTik)
+        const intValue = parseInt(value);
+        if (!isNaN(intValue)) return intValue;
+
+        // Jika gagal, coba parse dengan unit
+        const str = value.toString().toLowerCase();
+        const numericPart = parseFloat(str.replace(/[^0-9.]/g, ''));
+        if (isNaN(numericPart)) return 0;
+
+        // Check for units
+        if (str.includes('kib') || str.includes('kb')) {
+            return numericPart * 1024;
+        } else if (str.includes('mib') || str.includes('mb')) {
+            return numericPart * 1024 * 1024;
+        } else if (str.includes('gib') || str.includes('gb')) {
+            return numericPart * 1024 * 1024 * 1024;
+        } else {
+            // Assume bytes if no unit
+            return numericPart;
+        }
+    }
+
+    return 0;
+}
+
 // Fungsi untuk mendapatkan informasi resource yang diformat
 async function getResourceInfo() {
     // Ambil traffic interface utama (default ether1)
@@ -181,41 +226,79 @@ async function getResourceInfo() {
     try {
         traffic = await getInterfaceTraffic(interfaceName);
     } catch (e) { traffic = { rx: 0, tx: 0 }; }
+
     try {
         const resources = await getRouterResources();
         if (!resources) {
             return { success: false, message: 'Resource router tidak ditemukan', data: null };
         }
-        // Gunakan safeNumber untuk parsing
-        const totalMem = safeNumber(resources['total-memory']);
-        const freeMem = safeNumber(resources['free-memory']);
+
+        // Debug: Log raw resource data (bisa dinonaktifkan nanti)
+        // logger.info('Raw MikroTik resource data:', JSON.stringify(resources, null, 2));
+
+        // Parse memory berdasarkan field yang tersedia di debug
+        // Berdasarkan debug: free-memory: 944705536, total-memory: 1073741824 (dalam bytes)
+        const totalMem = parseMemoryValue(resources['total-memory']) || 0;
+        const freeMem = parseMemoryValue(resources['free-memory']) || 0;
         const usedMem = totalMem > 0 && freeMem >= 0 ? totalMem - freeMem : 0;
-        const totalDisk = safeNumber(resources['total-hdd-space']);
-        const freeDisk = safeNumber(resources['free-hdd-space']);
+
+        // Parse disk space berdasarkan field yang tersedia di debug
+        // Berdasarkan debug: free-hdd-space: 438689792, total-hdd-space: 537133056 (dalam bytes)
+        const totalDisk = parseMemoryValue(resources['total-hdd-space']) || 0;
+        const freeDisk = parseMemoryValue(resources['free-hdd-space']) || 0;
         const usedDisk = totalDisk > 0 && freeDisk >= 0 ? totalDisk - freeDisk : 0;
+
+        // Parse CPU load (bisa dalam format percentage atau decimal)
+        let cpuLoad = safeNumber(resources['cpu-load']);
+        if (cpuLoad > 0 && cpuLoad <= 1) {
+            cpuLoad = cpuLoad * 100; // Convert dari decimal ke percentage
+        }
+
         const data = {
             trafficRX: traffic && traffic.rx ? (traffic.rx / 1000000).toFixed(2) : '0.00',
             trafficTX: traffic && traffic.tx ? (traffic.tx / 1000000).toFixed(2) : '0.00',
-            cpuLoad: safeNumber(resources['cpu-load']),
+            cpuLoad: Math.round(cpuLoad),
             cpuCount: safeNumber(resources['cpu-count']),
             cpuFrequency: safeNumber(resources['cpu-frequency']),
-            architecture: resources['architecture-name'] || 'N/A',
-            model: resources['model'] || 'N/A',
+            architecture: resources['architecture-name'] || resources['cpu'] || 'N/A',
+            model: resources['model'] || resources['board-name'] || 'N/A',
             serialNumber: resources['serial-number'] || 'N/A',
-            firmware: resources['firmware-type'] || 'N/A',
+            firmware: resources['firmware-type'] || resources['version'] || 'N/A',
             voltage: resources['voltage'] || resources['board-voltage'] || 'N/A',
             temperature: resources['temperature'] || resources['board-temperature'] || 'N/A',
             badBlocks: resources['bad-blocks'] || 'N/A',
-            memoryUsed: Math.round(usedMem / 1024 / 1024),
-            memoryFree: Math.round(freeMem / 1024 / 1024),
-            totalMemory: Math.round(totalMem / 1024 / 1024),
-            diskUsed: Math.round(usedDisk / 1024 / 1024),
-            diskFree: Math.round(freeDisk / 1024 / 1024),
-            totalDisk: Math.round(totalDisk / 1024 / 1024),
+            // Konversi dari bytes ke MB dengan 2 decimal places
+            memoryUsed: totalMem > 0 ? parseFloat((usedMem / 1024 / 1024).toFixed(2)) : 0,
+            memoryFree: totalMem > 0 ? parseFloat((freeMem / 1024 / 1024).toFixed(2)) : 0,
+            totalMemory: totalMem > 0 ? parseFloat((totalMem / 1024 / 1024).toFixed(2)) : 0,
+            diskUsed: totalDisk > 0 ? parseFloat((usedDisk / 1024 / 1024).toFixed(2)) : 0,
+            diskFree: totalDisk > 0 ? parseFloat((freeDisk / 1024 / 1024).toFixed(2)) : 0,
+            totalDisk: totalDisk > 0 ? parseFloat((totalDisk / 1024 / 1024).toFixed(2)) : 0,
             uptime: resources.uptime || 'N/A',
             version: resources.version || 'N/A',
-            boardName: resources['board-name'] || 'N/A'
+            boardName: resources['board-name'] || 'N/A',
+            platform: resources['platform'] || 'N/A',
+            // Debug info (bisa dihapus nanti)
+            rawTotalMem: resources['total-memory'],
+            rawFreeMem: resources['free-memory'],
+            rawTotalDisk: resources['total-hdd-space'],
+            rawFreeDisk: resources['free-hdd-space'],
+            parsedTotalMem: totalMem,
+            parsedFreeMem: freeMem,
+            parsedTotalDisk: totalDisk,
+            parsedFreeDisk: freeDisk
         };
+
+        // Log parsed data for debugging (bisa dinonaktifkan nanti)
+        // logger.info('Parsed memory data:', {
+        //     totalMem: totalMem,
+        //     freeMem: freeMem,
+        //     usedMem: usedMem,
+        //     totalMemMB: data.totalMemory,
+        //     freeMemMB: data.memoryFree,
+        //     usedMemMB: data.memoryUsed
+        // });
+
         return {
             success: true,
             message: 'Berhasil mengambil info resource router',

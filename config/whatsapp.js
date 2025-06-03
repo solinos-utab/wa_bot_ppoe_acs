@@ -831,6 +831,7 @@ async function handleHelpCommand(remoteJid, isAdmin = false) {
 ▸ *ping [host] [count]* — Ping ke host
 ▸ *logs [topics] [count]* — System logs
 ▸ *resource* — Info resource router
+▸ *debug resource* — Debug raw resource data
 ▸ *clock* — Waktu router
 ▸ *identity [nama]* — Identity router
 
@@ -943,6 +944,7 @@ async function sendAdminMenuList(remoteJid) {
 ▸ *ping [host] [count]* — Ping ke host
 ▸ *logs [topics] [count]* — System logs
 ▸ *resource* — Info resource router
+▸ *debug resource* — Debug raw resource data
 ▸ *clock* — Waktu router
 ▸ *identity [nama]* — Identity router
 
@@ -3496,41 +3498,70 @@ async function handleResourceInfo(remoteJid) {
 
     try {
         // Kirim pesan sedang memproses
-        await sock.sendMessage(remoteJid, { 
+        await sock.sendMessage(remoteJid, {
             text: `⏳ *Memproses Permintaan*\n\nSedang mengambil informasi resource router...`
         });
-        
+
         // Import modul mikrotik
         const mikrotik = require('./mikrotik');
-        
+
         // Ambil informasi resource
         const result = await mikrotik.getResourceInfo();
 
         if (result.success) {
-            const { cpuLoad, freeMemory, totalMemory, uptime } = result.data;
-            await sock.sendMessage(remoteJid, { 
-                text: `📊 *INFO RESOURCE ROUTER*\n\n` +
-                      `💻 *CPU*\n` +
-                      `• Load: ${cpuLoad}%\n\n` +
-                      `💾 *MEMORY*\n` +
-                      `• Free: ${(freeMemory/1024/1024).toFixed(2)} MB\n` +
-                      `• Total: ${(totalMemory/1024/1024).toFixed(2)} MB\n` +
-                      `• Used: ${((totalMemory-freeMemory)/1024/1024).toFixed(2)} MB\n` +
-                      `• Usage: ${((totalMemory-freeMemory)/totalMemory*100).toFixed(1)}%\n\n` +
-                      `⏰ *UPTIME*\n` +
-                      `• ${uptime}`
-            });
+            const data = result.data;
+
+            // Format CPU info
+            let cpuInfo = `💻 *CPU*\n• Load: ${data.cpuLoad}%\n`;
+            if (data.cpuCount > 0) cpuInfo += `• Count: ${data.cpuCount}\n`;
+            if (data.cpuFrequency > 0) cpuInfo += `• Frequency: ${data.cpuFrequency} MHz\n`;
+
+            // Format Memory info dengan penanganan data tidak tersedia
+            let memoryInfo = `💾 *MEMORY*\n`;
+            if (data.totalMemory > 0) {
+                const memUsagePercent = ((data.memoryUsed / data.totalMemory) * 100).toFixed(1);
+                memoryInfo += `• Free: ${data.memoryFree.toFixed(2)} MB\n`;
+                memoryInfo += `• Total: ${data.totalMemory.toFixed(2)} MB\n`;
+                memoryInfo += `• Used: ${data.memoryUsed.toFixed(2)} MB\n`;
+                memoryInfo += `• Usage: ${memUsagePercent}%\n`;
+            } else {
+                memoryInfo += `• Status: ⚠️ Data tidak tersedia\n`;
+            }
+
+            // Format Disk info
+            let diskInfo = `💿 *DISK*\n`;
+            if (data.totalDisk > 0) {
+                const diskUsagePercent = ((data.diskUsed / data.totalDisk) * 100).toFixed(1);
+                diskInfo += `• Total: ${data.totalDisk.toFixed(2)} MB\n`;
+                diskInfo += `• Free: ${data.diskFree.toFixed(2)} MB\n`;
+                diskInfo += `• Used: ${data.diskUsed.toFixed(2)} MB\n`;
+                diskInfo += `• Usage: ${diskUsagePercent}%\n`;
+            } else {
+                diskInfo += `• Status: ⚠️ Data tidak tersedia\n`;
+            }
+
+            // Format System info
+            let systemInfo = `⏰ *UPTIME*\n• ${data.uptime}\n\n`;
+            systemInfo += `🔧 *SYSTEM INFO*\n`;
+            if (data.model !== 'N/A') systemInfo += `• Model: ${data.model}\n`;
+            if (data.architecture !== 'N/A') systemInfo += `• Architecture: ${data.architecture}\n`;
+            if (data.version !== 'N/A') systemInfo += `• Version: ${data.version}\n`;
+            if (data.boardName !== 'N/A') systemInfo += `• Board: ${data.boardName}\n`;
+
+            const message = `📊 *INFO RESOURCE ROUTER*\n\n${cpuInfo}\n${memoryInfo}\n${diskInfo}\n${systemInfo}`;
+
+            await sock.sendMessage(remoteJid, { text: message });
         } else {
-            await sock.sendMessage(remoteJid, { 
+            await sock.sendMessage(remoteJid, {
                 text: `❌ *ERROR*\n\n${result.message}\n\nSilakan coba lagi nanti.`
             });
         }
     } catch (error) {
         console.error('Error handling resource info command:', error);
-        
+
         // Kirim pesan error
         try {
-            await sock.sendMessage(remoteJid, { 
+            await sock.sendMessage(remoteJid, {
                 text: `❌ *ERROR*\n\nTerjadi kesalahan saat mengambil informasi resource: ${error.message}\n\nSilakan coba lagi nanti.`
             });
         } catch (sendError) {
@@ -4807,6 +4838,13 @@ Pesan GenieACS telah diaktifkan kembali.`);
             if (command === 'confirm restart' || command === '!confirm restart' || command === '/confirm restart') {
                 console.log(`Menjalankan konfirmasi restart router`);
                 await mikrotikCommands.handleConfirmRestart(remoteJid);
+                return;
+            }
+
+            // Perintah debug resource (admin only)
+            if (command === 'debug resource' || command === '!debug resource' || command === '/debug resource') {
+                console.log(`Admin menjalankan debug resource`);
+                await mikrotikCommands.handleDebugResource(remoteJid);
                 return;
             }
             

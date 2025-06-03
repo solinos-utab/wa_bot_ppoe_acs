@@ -134,43 +134,71 @@ async function handleResourceInfo(remoteJid) {
         console.error('Sock instance not set');
         return;
     }
+
+    // Kirim pesan loading
+    await sock.sendMessage(remoteJid, {
+        text: `⏳ *Mengambil Info Resource Router*\n\nSedang memproses...`
+    });
+
     const result = await getResourceInfo();
     if (!result.success || !result.data) {
         await sock.sendMessage(remoteJid, { text: `❌ ${result.message}` });
         return;
     }
+
     const data = result.data;
-    await sock.sendMessage(remoteJid, { 
-        text: `📊 *INFO RESOURCE ROUTER*\n\n` +
-              `💻 *CPU*\n` +
-              `• Load: ${data.cpuLoad}%\n` +
-              `• Count: ${data.cpuCount}\n` +
-              `• Frequency: ${data.cpuFrequency} MHz\n\n` +
-              `💾 *MEMORY*\n` +
-              `• Total: ${data.totalMemory} MB\n` +
-              `• Free: ${data.memoryFree} MB\n` +
-              `• Used: ${data.memoryUsed} MB\n` +
-              `• Usage: ${data.totalMemory ? ((data.memoryUsed/data.totalMemory)*100).toFixed(1) : 0}%\n\n` +
-              `💿 *DISK*\n` +
-              `• Total: ${data.totalDisk} MB\n` +
-              `• Free: ${data.diskFree} MB\n` +
-              `• Used: ${data.diskUsed} MB\n` +
-              `• Usage: ${data.totalDisk ? ((data.diskUsed/data.totalDisk)*100).toFixed(1) : 0}%\n\n` +
-              `📶 *TRAFFIC* (${process.env.MAIN_INTERFACE || 'ether1'})\n` +
-              `• RX: ${data.trafficRX} Mbps\n` +
-              `• TX: ${data.trafficTX} Mbps\n\n` +
-              `⏰ *UPTIME*\n` +
-              `• ${data.uptime}\n\n` +
-              `🔧 *BOARD*\n` +
-              `• Model: ${data.model}\n` +
-              `• Serial: ${data.serialNumber}\n` +
-              `• Board: ${data.boardName}\n` +
-              `• Architecture: ${data.architecture}\n` +
-              `• Firmware: ${data.firmware}\n` +
-              `• Bad Blocks: ${data.badBlocks}\n` +
-              `• Voltage: ${data.voltage}\n` +
-              `• Temperature: ${data.temperature}`
-    });
+
+    // Format CPU info
+    let cpuInfo = `💻 *CPU*\n• Load: ${data.cpuLoad}%\n`;
+    if (data.cpuCount > 0) cpuInfo += `• Count: ${data.cpuCount}\n`;
+    if (data.cpuFrequency > 0) cpuInfo += `• Frequency: ${data.cpuFrequency} MHz\n`;
+
+    // Format Memory info dengan penanganan data tidak tersedia
+    let memoryInfo = `💾 *MEMORY*\n`;
+    if (data.totalMemory > 0) {
+        const memUsagePercent = ((data.memoryUsed / data.totalMemory) * 100).toFixed(1);
+        memoryInfo += `• Free: ${data.memoryFree.toFixed(2)} MB\n`;
+        memoryInfo += `• Total: ${data.totalMemory.toFixed(2)} MB\n`;
+        memoryInfo += `• Used: ${data.memoryUsed.toFixed(2)} MB\n`;
+        memoryInfo += `• Usage: ${memUsagePercent}%\n`;
+    } else {
+        memoryInfo += `• Status: ⚠️ Data tidak tersedia\n`;
+        if (data.rawTotalMem) memoryInfo += `• Raw Total: ${data.rawTotalMem}\n`;
+        if (data.rawFreeMem) memoryInfo += `• Raw Free: ${data.rawFreeMem}\n`;
+    }
+
+    // Format Disk info
+    let diskInfo = `💿 *DISK*\n`;
+    if (data.totalDisk > 0) {
+        const diskUsagePercent = ((data.diskUsed / data.totalDisk) * 100).toFixed(1);
+        diskInfo += `• Total: ${data.totalDisk.toFixed(2)} MB\n`;
+        diskInfo += `• Free: ${data.diskFree.toFixed(2)} MB\n`;
+        diskInfo += `• Used: ${data.diskUsed.toFixed(2)} MB\n`;
+        diskInfo += `• Usage: ${diskUsagePercent}%\n`;
+    } else {
+        diskInfo += `• Status: ⚠️ Data tidak tersedia\n`;
+    }
+
+    // Format Traffic info
+    let trafficInfo = `📶 *TRAFFIC* (${process.env.MAIN_INTERFACE || 'ether1'})\n`;
+    trafficInfo += `• RX: ${data.trafficRX} Mbps\n`;
+    trafficInfo += `• TX: ${data.trafficTX} Mbps\n`;
+
+    // Format System info
+    let systemInfo = `⏰ *UPTIME*\n• ${data.uptime}\n\n`;
+    systemInfo += `🔧 *SYSTEM INFO*\n`;
+    if (data.model !== 'N/A') systemInfo += `• Model: ${data.model}\n`;
+    if (data.architecture !== 'N/A') systemInfo += `• Architecture: ${data.architecture}\n`;
+    if (data.version !== 'N/A') systemInfo += `• Version: ${data.version}\n`;
+    if (data.boardName !== 'N/A') systemInfo += `• Board: ${data.boardName}\n`;
+    if (data.serialNumber !== 'N/A') systemInfo += `• Serial: ${data.serialNumber}\n`;
+    if (data.temperature !== 'N/A') systemInfo += `• Temperature: ${data.temperature}°C\n`;
+    if (data.voltage !== 'N/A') systemInfo += `• Voltage: ${data.voltage}V\n`;
+    if (data.badBlocks !== 'N/A') systemInfo += `• Bad Blocks: ${data.badBlocks}\n`;
+
+    const message = `📊 *INFO RESOURCE ROUTER*\n\n${cpuInfo}\n${memoryInfo}\n${diskInfo}\n${trafficInfo}\n${systemInfo}`;
+
+    await sock.sendMessage(remoteJid, { text: message });
 }
 
 // Handler untuk melihat user hotspot aktif
@@ -898,6 +926,84 @@ async function handleAllUsers(remoteJid) {
     await sock.sendMessage(remoteJid, { text: message });
 }
 
+// Handler untuk debug resource (admin only)
+async function handleDebugResource(remoteJid) {
+    if (!sock) {
+        console.error('Sock instance not set');
+        return;
+    }
+
+    // Kirim pesan loading
+    await sock.sendMessage(remoteJid, {
+        text: `🔍 *DEBUG RESOURCE ROUTER*\n\nMengambil raw data...`
+    });
+
+    try {
+        const { getRouterResources } = require('./mikrotik');
+        const rawData = await getRouterResources();
+
+        if (!rawData) {
+            await sock.sendMessage(remoteJid, {
+                text: `❌ *DEBUG RESOURCE*\n\nTidak ada data yang dikembalikan dari MikroTik.`
+            });
+            return;
+        }
+
+        // Format raw data untuk ditampilkan
+        let message = `🔍 *DEBUG RAW RESOURCE DATA*\n\n`;
+        message += `📋 *Available Fields:*\n`;
+
+        const fields = Object.keys(rawData);
+        fields.forEach((field, index) => {
+            if (index < 30) { // Batasi untuk menghindari pesan terlalu panjang
+                const value = rawData[field];
+                message += `${index + 1}. ${field}: ${value}\n`;
+            }
+        });
+
+        if (fields.length > 30) {
+            message += `... dan ${fields.length - 30} field lainnya\n`;
+        }
+
+        message += `\n📊 *Memory Related Fields:*\n`;
+        const memoryFields = fields.filter(f =>
+            f.toLowerCase().includes('memory') ||
+            f.toLowerCase().includes('mem') ||
+            f.toLowerCase().includes('ram')
+        );
+
+        if (memoryFields.length > 0) {
+            memoryFields.forEach(field => {
+                message += `• ${field}: ${rawData[field]}\n`;
+            });
+        } else {
+            message += `• Tidak ada field memory yang ditemukan\n`;
+        }
+
+        message += `\n💿 *Disk Related Fields:*\n`;
+        const diskFields = fields.filter(f =>
+            f.toLowerCase().includes('disk') ||
+            f.toLowerCase().includes('hdd') ||
+            f.toLowerCase().includes('storage')
+        );
+
+        if (diskFields.length > 0) {
+            diskFields.forEach(field => {
+                message += `• ${field}: ${rawData[field]}\n`;
+            });
+        } else {
+            message += `• Tidak ada field disk yang ditemukan\n`;
+        }
+
+        await sock.sendMessage(remoteJid, { text: message });
+
+    } catch (error) {
+        await sock.sendMessage(remoteJid, {
+            text: `❌ *DEBUG ERROR*\n\nTerjadi kesalahan: ${error.message}`
+        });
+    }
+}
+
 module.exports = {
     setSock,
     handleAddHotspotUser,
@@ -923,5 +1029,6 @@ module.exports = {
     handleConfirmRestart,
     handleRouterIdentity,
     handleRouterClock,
-    handleAllUsers
+    handleAllUsers,
+    handleDebugResource
 };
