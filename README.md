@@ -103,3 +103,9 @@ menggunakan nomer yang di daftarkan sebagai admin di ENV
 - `addpppoe_tag [pppoe_username] [nomor]` - Tambahkan nomor pelanggan berdasarkan PPPoE
 ### Jangan lupa untuk mengkonfigurasi file .env terlebih dahulu!
 ### Untuk tetap berjalan saat console di close gunakan pm2
+
+https://t.me/alijayaNetAcs
+
+###SILAHKAN YANG INGIN BERBAGI
+
+![Image](https://github.com/user-attachments/assets/724e5ac2-626e-4f2d-bd1f-1265b70b544f)
