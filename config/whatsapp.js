@@ -25,6 +25,9 @@ const {
 // Import handler perintah MikroTik baru
 const mikrotikCommands = require('./mikrotik-commands');
 
+// Import handler perintah PPPoE notifications
+const pppoeCommands = require('./pppoe-commands');
+
 // Import modul addWAN
 const { handleAddWAN } = require('./addWAN');
 
@@ -834,6 +837,15 @@ async function handleHelpCommand(remoteJid, isAdmin = false) {
 ⚙️ *System Management:*
 ▸ *reboot* — Restart router (perlu konfirmasi)
 
+📢 *Notifikasi PPPoE:*
+▸ *pppoe on* — Aktifkan notifikasi PPPoE
+▸ *pppoe off* — Nonaktifkan notifikasi PPPoE
+▸ *pppoe status* — Status notifikasi PPPoE
+▸ *pppoe addadmin [nomor]* — Tambah nomor admin
+▸ *pppoe addtech [nomor]* — Tambah nomor teknisi
+▸ *pppoe interval [detik]* — Ubah interval monitoring
+▸ *pppoe test* — Test notifikasi
+
 🔌 *Manajemen WAN:*
 ▸ *addwan [nomor] [tipe] [mode]* — Tambah konfigurasi WAN
   ↳ Tipe: ppp atau ip
@@ -936,6 +948,15 @@ async function sendAdminMenuList(remoteJid) {
 
 ⚙️ *System Management:*
 ▸ *reboot* — Restart router (perlu konfirmasi)
+
+📢 *Notifikasi PPPoE:*
+▸ *pppoe on* — Aktifkan notifikasi PPPoE
+▸ *pppoe off* — Nonaktifkan notifikasi PPPoE
+▸ *pppoe status* — Status notifikasi PPPoE
+▸ *pppoe addadmin [nomor]* — Tambah nomor admin
+▸ *pppoe addtech [nomor]* — Tambah nomor teknisi
+▸ *pppoe interval [detik]* — Ubah interval monitoring
+▸ *pppoe test* — Test notifikasi
 
 🔌 *Manajemen WAN:*
 ▸ *addwan [nomor] [tipe] [mode]* — Tambah konfigurasi WAN
@@ -4421,6 +4442,86 @@ Pesan GenieACS telah diaktifkan kembali.`);
                         await sendGenieACSDisabledMessage(remoteJid);
                     }
                     return;
+                }
+            }
+
+            // Perintah PPPoE notification management
+            if (command.toLowerCase().startsWith('pppoe ') || command.toLowerCase().startsWith('!pppoe ') || command.toLowerCase().startsWith('/pppoe ')) {
+                const params = messageText.split(' ').slice(1);
+                if (params.length >= 1) {
+                    const subCommand = params[0].toLowerCase();
+
+                    switch (subCommand) {
+                        case 'on':
+                        case 'enable':
+                            console.log(`Admin mengaktifkan notifikasi PPPoE`);
+                            await pppoeCommands.handleEnablePPPoENotifications(remoteJid);
+                            return;
+
+                        case 'off':
+                        case 'disable':
+                            console.log(`Admin menonaktifkan notifikasi PPPoE`);
+                            await pppoeCommands.handleDisablePPPoENotifications(remoteJid);
+                            return;
+
+                        case 'status':
+                            console.log(`Admin melihat status notifikasi PPPoE`);
+                            await pppoeCommands.handlePPPoEStatus(remoteJid);
+                            return;
+
+                        case 'addadmin':
+                            if (params.length >= 2) {
+                                console.log(`Admin menambah nomor admin PPPoE: ${params[1]}`);
+                                await pppoeCommands.handleAddAdminNumber(remoteJid, params[1]);
+                            } else {
+                                await sock.sendMessage(remoteJid, {
+                                    text: `❌ *FORMAT SALAH*\n\nFormat: pppoe addadmin [nomor]\nContoh: pppoe addadmin 081234567890`
+                                });
+                            }
+                            return;
+
+                        case 'addtech':
+                        case 'addteknisi':
+                            if (params.length >= 2) {
+                                console.log(`Admin menambah nomor teknisi PPPoE: ${params[1]}`);
+                                await pppoeCommands.handleAddTechnicianNumber(remoteJid, params[1]);
+                            } else {
+                                await sock.sendMessage(remoteJid, {
+                                    text: `❌ *FORMAT SALAH*\n\nFormat: pppoe addtech [nomor]\nContoh: pppoe addtech 081234567890`
+                                });
+                            }
+                            return;
+
+                        case 'interval':
+                            if (params.length >= 2) {
+                                console.log(`Admin mengubah interval PPPoE: ${params[1]}`);
+                                await pppoeCommands.handleSetInterval(remoteJid, params[1]);
+                            } else {
+                                await sock.sendMessage(remoteJid, {
+                                    text: `❌ *FORMAT SALAH*\n\nFormat: pppoe interval [detik]\nContoh: pppoe interval 60`
+                                });
+                            }
+                            return;
+
+                        case 'test':
+                            console.log(`Admin test notifikasi PPPoE`);
+                            await pppoeCommands.handleTestNotification(remoteJid);
+                            return;
+
+                        default:
+                            await sock.sendMessage(remoteJid, {
+                                text: `❌ *PERINTAH TIDAK DIKENAL*\n\n` +
+                                      `Perintah PPPoE yang tersedia:\n` +
+                                      `• pppoe on - Aktifkan notifikasi\n` +
+                                      `• pppoe off - Nonaktifkan notifikasi\n` +
+                                      `• pppoe status - Lihat status\n` +
+                                      `• pppoe addadmin [nomor] - Tambah admin\n` +
+                                      `• pppoe addtech [nomor] - Tambah teknisi\n` +
+                                      `• pppoe interval [detik] - Ubah interval\n` +
+                                      `• pppoe test - Test notifikasi`
+                            });
+                            return;
+                    }
                 }
             }
             

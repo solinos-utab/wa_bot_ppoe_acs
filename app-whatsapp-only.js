@@ -93,22 +93,40 @@ app.get('/whatsapp/status', (req, res) => {
     });
 });
 
+// Import PPPoE monitoring modules
+const pppoeMonitor = require('./config/pppoe-monitor');
+const pppoeCommands = require('./config/pppoe-commands');
+
 // Inisialisasi WhatsApp dan PPPoE monitoring
 try {
     whatsapp.connectToWhatsApp().then(sock => {
         if (sock) {
             // Set sock instance untuk whatsapp
             whatsapp.setSock(sock);
+
+            // Set sock instance untuk PPPoE monitoring
+            pppoeMonitor.setSock(sock);
+            pppoeCommands.setSock(sock);
+
             logger.info('WhatsApp connected successfully');
+
+            // Initialize PPPoE monitoring jika MikroTik dikonfigurasi
+            if (process.env.MIKROTIK_HOST && process.env.MIKROTIK_USER && process.env.MIKROTIK_PASSWORD) {
+                pppoeMonitor.initializePPPoEMonitoring().then(() => {
+                    logger.info('PPPoE monitoring initialized');
+                }).catch(err => {
+                    logger.error('Error initializing PPPoE monitoring:', err);
+                });
+            }
         }
     }).catch(err => {
         logger.error('Error connecting to WhatsApp:', err);
     });
-    
-    // Mulai monitoring PPPoE jika dikonfigurasi
+
+    // Mulai monitoring PPPoE lama jika dikonfigurasi (fallback)
     if (process.env.MIKROTIK_HOST && process.env.MIKROTIK_USER && process.env.MIKROTIK_PASSWORD) {
         monitorPPPoEConnections().catch(err => {
-            logger.error('Error starting PPPoE monitoring:', err);
+            logger.error('Error starting legacy PPPoE monitoring:', err);
         });
     }
 } catch (error) {
