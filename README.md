@@ -74,6 +74,8 @@ Scan QR code yang muncul di terminal untuk login WhatsApp. menggunakan wa yang a
 ## Perintah WhatsApp
 menggunakan nomer yang di daftarkan sebagai admin di ENV
 
+untuk mendaftarkan nomer admin silahkan kirim pesan setadmin 081321xxxxxx kirim ke 087820851413 untuk di daftarkan ke server
+
 ### Perintah untuk Pelanggan
 - `menu` - Menampilkan menu bantuan
 - `status` - Cek status perangkat
