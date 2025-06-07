@@ -24,7 +24,9 @@ cd whatsapp
 ```bash
 npm install
 ```
-
+```
+sudo npm install -g pm2
+```
 ### 2. Konfigurasi Environment Variables
 
 Salin file `.env.example` menjadi `.env` dan sesuaikan:
@@ -57,7 +59,7 @@ MIKROTIK_PASSWORD=password
 
 # Konfigurasi WhatsApp
 ADMIN_NUMBER=6281234567890
-TECHNICIAN_NUMBERS=6281234567890,6287654321098
+TECHNICIAN_NUMBERS=6281234567890,62876xxxxxxxxxxxx
 WHATSAPP_SESSION_PATH=./whatsapp-session
 WHATSAPP_KEEP_ALIVE=true
 WHATSAPP_RESTART_ON_ERROR=true
@@ -70,6 +72,11 @@ node app-whatsapp-only.js
 ```
 
 Scan QR code yang muncul di terminal untuk login WhatsApp. menggunakan wa yang akan jadi BOT
+setelah berhasil close dulu dengan control+c
+lalu 
+```
+pm2 start app-whatsapp-only.js
+```
 
 ## Perintah WhatsApp
 menggunakan nomer yang di daftarkan sebagai admin di ENV
