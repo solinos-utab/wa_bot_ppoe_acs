@@ -6,6 +6,7 @@ const { getMikrotikConnection } = require('./mikrotik');
 
 // Path untuk menyimpan pengaturan notifikasi
 const settingsPath = path.join(__dirname, '..', 'pppoe-notification-settings.json');
+const mainSettingsPath = path.join(__dirname, '..', 'settings.json');
 
 // Default settings
 const defaultSettings = {
@@ -14,8 +15,6 @@ const defaultSettings = {
     logoutNotifications: true,
     includeOfflineList: true,
     maxOfflineListCount: 20,
-    adminNumbers: [], // Nomor admin yang akan menerima notifikasi
-    technicianNumbers: [], // Nomor teknisi yang akan menerima notifikasi
     monitorInterval: 60000, // 1 menit
     lastActiveUsers: []
 };
@@ -34,12 +33,41 @@ function setSock(sockInstance) {
 // Load settings from file
 function loadSettings() {
     try {
+        // Load PPPoE notification specific settings
+        let pppoeSettings = defaultSettings;
         if (fs.existsSync(settingsPath)) {
             const data = fs.readFileSync(settingsPath, 'utf8');
-            const settings = JSON.parse(data);
-            return { ...defaultSettings, ...settings };
+            pppoeSettings = { ...defaultSettings, ...JSON.parse(data) };
         }
-        return defaultSettings;
+
+        // Load main settings for admin and technician numbers
+        let mainSettings = {};
+        if (fs.existsSync(mainSettingsPath)) {
+            const mainData = fs.readFileSync(mainSettingsPath, 'utf8');
+            mainSettings = JSON.parse(mainData);
+        }
+
+        // Extract admin and technician numbers from main settings
+        const adminNumbers = mainSettings.admins || [];
+
+        // Parse technician numbers (handle comma-separated string format)
+        let technicianNumbers = [];
+        if (mainSettings.technician_numbers && Array.isArray(mainSettings.technician_numbers)) {
+            technicianNumbers = mainSettings.technician_numbers.flatMap(item => {
+                if (typeof item === 'string' && item.includes(',')) {
+                    return item.split(',').map(num => num.trim());
+                }
+                return [item];
+            });
+        }
+
+        // Combine settings with admin/technician numbers from main settings
+        return {
+            ...pppoeSettings,
+            adminNumbers,
+            technicianNumbers,
+            monitorInterval: mainSettings.pppoe_monitor_interval || pppoeSettings.monitorInterval
+        };
     } catch (error) {
         logger.error(`Error loading PPPoE notification settings: ${error.message}`);
         return defaultSettings;
@@ -85,50 +113,43 @@ function setLogoutNotifications(enabled) {
     return updateSettings({ logoutNotifications: enabled });
 }
 
-// Set admin numbers
+// Note: Admin and technician numbers are now managed through settings.json
+// These functions are kept for backward compatibility but will show a warning
+
+// Set admin numbers (deprecated - use settings.json)
 function setAdminNumbers(numbers) {
-    const adminNumbers = Array.isArray(numbers) ? numbers : [numbers];
-    return updateSettings({ adminNumbers });
+    logger.warn('setAdminNumbers is deprecated. Please update admin numbers in settings.json');
+    return false;
 }
 
-// Set technician numbers
+// Set technician numbers (deprecated - use settings.json)
 function setTechnicianNumbers(numbers) {
-    const technicianNumbers = Array.isArray(numbers) ? numbers : [numbers];
-    return updateSettings({ technicianNumbers });
+    logger.warn('setTechnicianNumbers is deprecated. Please update technician numbers in settings.json');
+    return false;
 }
 
-// Add admin number
+// Add admin number (deprecated - use settings.json)
 function addAdminNumber(number) {
-    const settings = loadSettings();
-    if (!settings.adminNumbers.includes(number)) {
-        settings.adminNumbers.push(number);
-        return saveSettings(settings);
-    }
-    return true;
+    logger.warn('addAdminNumber is deprecated. Please update admin numbers in settings.json');
+    return false;
 }
 
-// Add technician number
+// Add technician number (deprecated - use settings.json)
 function addTechnicianNumber(number) {
-    const settings = loadSettings();
-    if (!settings.technicianNumbers.includes(number)) {
-        settings.technicianNumbers.push(number);
-        return saveSettings(settings);
-    }
-    return true;
+    logger.warn('addTechnicianNumber is deprecated. Please update technician numbers in settings.json');
+    return false;
 }
 
-// Remove admin number
+// Remove admin number (deprecated - use settings.json)
 function removeAdminNumber(number) {
-    const settings = loadSettings();
-    settings.adminNumbers = settings.adminNumbers.filter(n => n !== number);
-    return saveSettings(settings);
+    logger.warn('removeAdminNumber is deprecated. Please update admin numbers in settings.json');
+    return false;
 }
 
-// Remove technician number
+// Remove technician number (deprecated - use settings.json)
 function removeTechnicianNumber(number) {
-    const settings = loadSettings();
-    settings.technicianNumbers = settings.technicianNumbers.filter(n => n !== number);
-    return saveSettings(settings);
+    logger.warn('removeTechnicianNumber is deprecated. Please update technician numbers in settings.json');
+    return false;
 }
 
 // Helper function untuk cek koneksi WhatsApp
