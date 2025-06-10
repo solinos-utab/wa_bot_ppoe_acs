@@ -23,6 +23,8 @@ git clone https://github.com/alijayanet/whatsapp
 ```
 cd whatsapp
 ```
+
+settings.json dan .env
 ### 1. Install Dependensi
 
 ```bash
