@@ -11,6 +11,10 @@ Versi ringan dari Botlokal yang hanya menggunakan fitur WhatsApp tanpa web inter
 
 ## Cara Instalasi
 ```
+curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash
+```
+sudo apt install nodejs
+```
 apt install git curl -y
 ```
 ```
